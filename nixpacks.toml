@@ -11,6 +11,4 @@ cmd = "npm start"
 NODE_ENV = "production"
 NPM_CONFIG_PRODUCTION = "false"
 
-[phases.setup]
-nixPkgs = ["...", "nodejs_22"]
 
