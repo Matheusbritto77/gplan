@@ -219,7 +219,7 @@ const clearHistory = () => {
                     :style="{ backgroundColor: Number(idx) % 2 === 0 ? currentSchema.theme?.rowEvenBg : currentSchema.theme?.rowOddBg }">
                   <td v-for="col in currentSchema.sheets[0].columns" :key="col.key"
                       :style="{ borderColor: currentSchema.theme?.borderColor, textAlign: col.alignment || 'left' }">
-                    {{ row[col.key] }}
+                    {{ typeof row[col.key] === 'object' && row[col.key]?.formula ? `fx: ${row[col.key].formula}` : row[col.key] }}
                   </td>
                 </tr>
               </tbody>

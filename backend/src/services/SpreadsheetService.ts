@@ -14,6 +14,18 @@ export class SpreadsheetService {
         for (const sheetSchema of schema.sheets) {
             const worksheet = workbook.addWorksheet(sheetSchema.name);
 
+            // Configurações de View / Ações Automáticas
+            if (sheetSchema.freezePanes) {
+                worksheet.views = [
+                    { state: 'frozen', xSplit: sheetSchema.freezePanes.x || 0, ySplit: sheetSchema.freezePanes.y || 0 }
+                ];
+            }
+
+            if (sheetSchema.autoFilter) {
+                const lastCol = String.fromCharCode(64 + (sheetSchema.columns?.length || 1));
+                worksheet.autoFilter = `A1:${lastCol}1`;
+            }
+
             // Configurar colunas e formatos
             worksheet.columns = sheetSchema.columns.map((col: any) => ({
                 header: col.header,
@@ -41,8 +53,18 @@ export class SpreadsheetService {
                 cell.alignment = { vertical: 'middle', horizontal: 'center' };
             });
 
-            // Adicionar linhas
-            worksheet.addRows(sheetSchema.rows);
+            // Adicionar linhas tratando possíveis fórmulas
+            sheetSchema.rows.forEach((rowData: any) => {
+                const row = worksheet.addRow({});
+                Object.keys(rowData).forEach((key) => {
+                    const value = rowData[key];
+                    if (value && typeof value === 'object' && value.formula) {
+                        row.getCell(key).value = { formula: value.formula };
+                    } else {
+                        row.getCell(key).value = value;
+                    }
+                });
+            });
 
             // Estilizar linhas e aplicar formatos
             worksheet.eachRow((row, rowNumber) => {
