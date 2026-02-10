@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 import { SpreadsheetController } from "./controllers/SpreadsheetController";
 
 dotenv.config();
@@ -14,11 +15,12 @@ app.use(express.json({ limit: '50mb' }));
 const apiKey = process.env.GEMINI_API_KEY || '';
 const controller = new SpreadsheetController(apiKey);
 
-app.get("/", (req, res) => {
-    res.send("Spreadsheet-as-a-Service API (Node.js) is running");
+// API Routes prefixadas com /api
+app.get("/apihealth", (req, res) => {
+    res.send("API is running");
 });
 
-app.post("/process", async (req, res) => {
+app.post("/api/process", async (req, res) => {
     try {
         const { prompt } = req.body;
         if (!prompt) {
@@ -32,7 +34,7 @@ app.post("/process", async (req, res) => {
     }
 });
 
-app.post("/download", async (req, res) => {
+app.post("/api/download", async (req, res) => {
     try {
         const { schema, format } = req.body;
         const { buffer, filename, mimeType } = await controller.generateFile(schema, format);
@@ -44,6 +46,15 @@ app.post("/download", async (req, res) => {
         console.error("Error generating file:", error);
         res.status(500).json({ error: error.message });
     }
+});
+
+// Serve frontend static files
+const frontendPath = path.join(__dirname, "../../frontend/dist");
+app.use(express.static(frontendPath));
+
+// Fallback para o frontend handle routing (SPA)
+app.get("*", (req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
 });
 
 app.listen(port, () => {

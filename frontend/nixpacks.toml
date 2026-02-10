@@ -1,5 +1,0 @@
-[build]
-commands = ["npm install", "npm run build"]
-
-[start]
-cmd = "npx serve -s dist -p 5173"
