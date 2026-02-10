@@ -1,0 +1,5 @@
+[build]
+commands = ["npm install"]
+
+[start]
+cmd = "npm start"
