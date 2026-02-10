@@ -1,10 +1,12 @@
 [build]
 commands = [
-  "npm install --prefix backend",
-  "npm install --prefix frontend",
-  "npm run build --prefix frontend",
-  "npm run build --prefix backend"
+  "npm install",
+  "npm run build"
 ]
 
 [start]
-cmd = "npm start --prefix backend"
+cmd = "npm start"
+
+[variables]
+NODE_ENV = "production"
+NPM_CONFIG_PRODUCTION = "false"
