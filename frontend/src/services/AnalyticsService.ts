@@ -13,10 +13,21 @@ const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || '/api'
 });
 
+const getCookie = (name: string) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return undefined;
+};
+
 export const AnalyticsService = {
     sendEvent({ eventName, customData, userData }: MetaEventParams) {
         const eventID = 'evt_' + Math.random().toString(36).substring(2, 15) + Date.now();
         const eventSourceUrl = window.location.href;
+
+        // Captura cookes da Meta para aumentar a qualidade do Match (Dataset Quality)
+        const fbc = getCookie('_fbc');
+        const fbp = getCookie('_fbp');
 
         // 1. Enviar via Navegador (Pixel JS)
         if ((window as any).fbq) {
@@ -30,7 +41,11 @@ export const AnalyticsService = {
             eventSourceUrl,
             eventID,
             customData,
-            userData
+            userData: {
+                ...userData,
+                fbc,
+                fbp
+            }
         }).catch(err => {
             console.error('Falha ao enviar evento para CAPI:', err);
         });
