@@ -38,8 +38,30 @@ export class SpreadsheetService {
             }
 
             if (sheetSchema.autoFilter) {
-                const lastCol = String.fromCharCode(64 + (sheetSchema.columns?.length || 1));
-                worksheet.autoFilter = `A1:${lastCol}1`;
+                const lastColNum = sheetSchema.columns?.length || 1;
+                const lastCol = String.fromCharCode(64 + lastColNum);
+                const filterRow = sheetSchema.showTitle ? 2 : 1;
+                worksheet.autoFilter = `A${filterRow}:${lastCol}${filterRow}`;
+            }
+
+            // Título Visual no Topo
+            let startRow = 1;
+            if (sheetSchema.showTitle) {
+                const lastColNum = sheetSchema.columns?.length || 1;
+                const lastCol = String.fromCharCode(64 + lastColNum);
+                worksheet.mergeCells(`A1:${lastCol}1`);
+
+                const titleCell = worksheet.getCell('A1');
+                titleCell.value = schema.title;
+                titleCell.font = { bold: true, size: 16, color: { argb: theme.headerText } };
+                titleCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: theme.headerBg }
+                };
+                titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+                worksheet.getRow(1).height = 40;
+                startRow = 2;
             }
 
             // Configurar colunas e formatos
@@ -52,8 +74,9 @@ export class SpreadsheetService {
                 }
             }));
 
-            // Estilizar cabeçalho
-            const headerRow = worksheet.getRow(1);
+            // Estilizar cabeçalho (agora pode ser na linha 1 ou 2)
+            const headerRowNumber = sheetSchema.showTitle ? 2 : 1;
+            const headerRow = worksheet.getRow(headerRowNumber);
             headerRow.height = 30;
             headerRow.eachCell((cell) => {
                 cell.fill = {
@@ -84,7 +107,12 @@ export class SpreadsheetService {
 
             // Estilizar linhas e aplicar formatos
             worksheet.eachRow((row, rowNumber) => {
-                if (rowNumber === 1) return;
+                // Pular título e cabeçalho
+                if (sheetSchema.showTitle) {
+                    if (rowNumber <= 2) return;
+                } else {
+                    if (rowNumber === 1) return;
+                }
 
                 row.height = 25;
                 const isEven = rowNumber % 2 === 0;

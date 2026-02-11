@@ -135,7 +135,7 @@ const clearHistory = () => {
           <Sparkles :size="14" />
           <span>Powered by Gemini 2.0 Flash</span>
         </div>
-        <h1 class="gradient-text">SheetAI.app</h1>
+        <h1 class="gradient-text">SheetAI.online</h1>
         <p>Transforme ideias em planilhas estruturadas instantaneamente.</p>
       </header>
 

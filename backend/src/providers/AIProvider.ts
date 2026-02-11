@@ -51,7 +51,8 @@ export class AIProvider {
           "theme": { ... },
           "sheets": [{
             "name": "...",
-            "freezePanes": { "x": 0, "y": 1 }, // Ex: congelar cabeçalho
+            "showTitle": true, // Adicionar um título visual estilizado no topo
+            "freezePanes": { "x": 0, "y": 2 }, // Ajustado para 2 devido ao título
             "autoFilter": true, // Habilitar filtros automáticos
             "columns": [
               { "header": "...", "key": "k1", "width": 20, "format": "currency" }
