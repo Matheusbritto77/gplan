@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { SpreadsheetController } from "./controllers/SpreadsheetController";
+import { MetaController } from "./controllers/MetaController";
 
 dotenv.config();
 
@@ -14,11 +15,14 @@ app.use(express.json({ limit: '50mb' }));
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 const controller = new SpreadsheetController(apiKey);
+const metaController = new MetaController();
 
 // API Routes prefixadas com /api
 app.get("/apihealth", (req, res) => {
     res.send("API is running");
 });
+
+app.post("/api/meta/event", (req, res) => metaController.handleEvent(req, res));
 
 app.post("/api/process", async (req, res) => {
     try {

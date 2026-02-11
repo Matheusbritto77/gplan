@@ -21,8 +21,11 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api'
 });
 
+import { AnalyticsService } from './services/AnalyticsService';
+
 // Carregar Histórico Local
 onMounted(() => {
+  AnalyticsService.pageView();
   const saved = localStorage.getItem('sheet_history');
   if (saved) history.value = JSON.parse(saved);
 });
@@ -50,6 +53,11 @@ const processPrompt = async (forcedPrompt?: string) => {
     const response = await api.post('/process', { prompt: finalPrompt });
     const data = response.data;
 
+    AnalyticsService.sendEvent({ 
+      eventName: 'Lead', 
+      customData: { prompt: finalPrompt, schema_title: data.schema.title } 
+    });
+
     currentSchema.value = data.schema;
     question.value = data.followUp;
     suggestions.value = data.suggestions || [];
@@ -75,6 +83,15 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
       schema: currentSchema.value,
       format: format
     }, { responseType: 'blob' });
+
+    AnalyticsService.sendEvent({ 
+      eventName: 'Other', 
+      customData: { 
+        action: 'Download',
+        format: format, 
+        title: currentSchema.value.title 
+      } 
+    });
 
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
