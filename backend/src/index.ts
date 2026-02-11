@@ -5,7 +5,7 @@ import path from "path";
 import { SpreadsheetController } from "./controllers/SpreadsheetController";
 import { MetaController } from "./controllers/MetaController";
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, "../../.env") });
 
 const app = express();
 const port = process.env.PORT || 80;
