@@ -38,33 +38,35 @@ export class AIProvider {
       REGRAS CRUCIAIS:
       1. IDIOMA: Detecte o idioma do prompt ("${userPrompt}") e responda TODA a planilha (títulos, colunas, dados) nesse exato idioma.
       2. DESIGN: Defina uma paleta de cores (hex) elegante. O cabeçalho deve ter contraste alto.
-      3. DADOS: Gere uma massa de dados densa. Se for uma planilha financeira, invente transações reais. Se for estoque, nomes de produtos reais.
-      4. FORMATOS: Use o campo "format" para definir se a coluna é "currency" (dinheiro), "date" (data), "percentage" (porcentagem), ou "number".
+      3. DADOS: Gere uma massa de dados densa. Se for uma planilha financeira, invente transações reais. 
+      4. FORMULAS: OBRIGATORIAMENTE use fórmulas do Excel para campos calculados (ex: totais, médias, descontos, ROIs). 
+         - Use a sintaxe padrão do Excel em INGLÊS (ex: =SUM(A1:A10), =VLOOKUP(...), =IF(...)).
+      5. FORMATOS: Use o campo "format" para definir se a coluna é "currency", "date", "percentage", ou "number".
       
       FORMA DE RESPOSTA (JSON):
       {
         "schema": {
-          "title": "Título no idioma do usuário",
-          "description": "Descrição no idioma do usuário",
-          "theme": {
-             "headerBg": "#hex",
-             "headerText": "#hex",
-             "rowEvenBg": "#hex",
-             "rowOddBg": "#hex",
-             "borderColor": "#hex"
-          },
+          "title": "...",
+          "description": "...",
+          "theme": { ... },
           "sheets": [{
-            "name": "Nome no idioma do usuário",
+            "name": "...",
+            "showTitle": true, // Adicionar um título visual estilizado no topo
+            "freezePanes": { "x": 0, "y": 2 }, // Ajustado para 2 devido ao título
+            "autoFilter": true, // Habilitar filtros automáticos
             "columns": [
-              { "header": "Header Idioma", "key": "k1", "width": 20, "alignment": "center", "format": "currency" }
+              { "header": "...", "key": "k1", "width": 20, "format": "currency" }
             ],
             "rows": [
-              { "k1": "Valor coerente" }, ... (mínimo 20 objetos aqui)
+              { 
+                "k1": 150.50, // Valor bruto para dados normais
+                "k2": { "formula": "SUM(A2:A21)" } // Fórmulas para campos de ação
+              }, ... (mínimo 20 linhas)
             ]
           }]
         },
-        "followUp": "Pergunta de refinamento no idioma do usuário",
-        "suggestions": ["S1", "S2", "S3"] (no idioma do usuário)
+        "followUp": "...",
+        "suggestions": [...]
       }
     `;
     return await this.generateStructuredResponse(prompt);
