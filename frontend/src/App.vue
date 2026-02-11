@@ -2,8 +2,8 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { 
-  Sparkles, Download, FileSpreadsheet, Loader2, 
-  MessageSquare, ChevronRight, History, Trash2,
+  Sparkles, Download, Loader2, 
+  MessageSquare, ChevronRight,
   CheckCircle2, Info
 } from 'lucide-vue-next';
 
@@ -68,12 +68,6 @@ const useSuggestion = (text: string) => {
   processPrompt();
 };
 
-const loadFromHistory = (item: any) => {
-  currentSchema.value = item.schema;
-  showPreview.value = true;
-  askingMoreInfo.value = false;
-};
-
 const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
   if (!currentSchema.value) return;
   try {
@@ -91,42 +85,12 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
     alert('Erro ao baixar arquivo');
   }
 };
-
-const clearHistory = () => {
-  history.value = [];
-  localStorage.removeItem('sheet_history');
-};
 </script>
 
 <template>
   <div class="app-layout">
     <!-- Navegação Lateral (Histórico) -->
-    <aside class="sidebar glass-card">
-      <div class="sidebar-header">
-        <History :size="20" />
-        <span>Recentes</span>
-      </div>
-      <div class="history-list">
-        <div 
-          v-for="item in history" 
-          :key="item.id" 
-          class="history-item"
-          @click="loadFromHistory(item)"
-        >
-          <div class="item-icon"><FileSpreadsheet :size="16" /></div>
-          <div class="item-details">
-            <span class="item-title">{{ item.title }}</span>
-            <span class="item-date">{{ item.date }}</span>
-          </div>
-        </div>
-        <div v-if="history.length === 0" class="empty-history">
-          Sem gerações recentes
-        </div>
-      </div>
-      <button v-if="history.length > 0" @click="clearHistory" class="clear-btn">
-        <Trash2 :size="14" /> Limpar tudo
-      </button>
-    </aside>
+
 
     <!-- Área Principal -->
     <main class="main-content">
@@ -239,59 +203,11 @@ const clearHistory = () => {
   gap: 24px;
 }
 
-.sidebar {
-  width: 280px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  max-height: calc(100vh - 48px);
-  position: sticky;
-  top: 24px;
-}
-
 .sidebar-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 24px;
+  display: none;
 }
 
-.history-list {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
 
-.history-item {
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid transparent;
-}
-
-.history-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--primary);
-  transform: translateX(4px);
-}
-
-.item-icon {
-  color: var(--primary);
-  margin-top: 2px;
-}
-
-.item-details { display: flex; flex-direction: column; }
-.item-title { font-size: 0.9rem; font-weight: 500; color: var(--text-main); }
-.item-date { font-size: 0.75rem; color: var(--text-muted); }
 
 .main-content {
   flex: 1;
@@ -463,17 +379,7 @@ th {
 
 td { padding: 16px; border-bottom: 1px solid var(--glass-border); color: var(--text-muted); }
 
-.clear-btn { 
-  margin-top: 16px; 
-  background: none; 
-  border: none; 
-  color: var(--text-muted); 
-  cursor: pointer; 
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+
 
 /* Animations */
 .slide-up-enter-active, .slide-up-leave-active { transition: all 0.4s ease; }
@@ -489,7 +395,7 @@ td { padding: 16px; border-bottom: 1px solid var(--glass-border); color: var(--t
 
 @media (max-width: 1024px) {
   .app-layout { flex-direction: column; }
-  .sidebar { width: 100%; position: static; max-height: none; }
+  .sidebar { display: none; }
   .hero-section h1 { font-size: 2.5rem; }
 }
 </style>
