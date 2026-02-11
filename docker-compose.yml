@@ -4,14 +4,14 @@ services:
   app:
     build: .
     ports:
-      - "3001:3001"
+      - "80:80"
     environment:
-      - PORT=3001
+      - PORT=80
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - NODE_ENV=production
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/apihealth"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/apihealth"]
       interval: 30s
       timeout: 10s
       retries: 3
