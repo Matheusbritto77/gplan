@@ -3,12 +3,28 @@ import ExcelJS from 'exceljs';
 export class SpreadsheetService {
     async createWorkbook(schema: any): Promise<ExcelJS.Workbook> {
         const workbook = new ExcelJS.Workbook();
-        const theme = schema.theme || {
+        const defaultTheme = {
             headerBg: 'FF4F46E5',
             headerText: 'FFFFFFFF',
             rowEvenBg: 'FFF1F5F9',
             rowOddBg: 'FFFFFFFF',
             borderColor: 'FFE2E8F0'
+        };
+
+        const safeColor = (color: string | undefined, fallback: string) => {
+            if (!color) return fallback;
+            // Garante o prefixo FF para o canal Alpha do ARGB se for Hex
+            const hex = color.startsWith('#') ? color.replace('#', 'FF') : `FF${color}`;
+            // Validação básica de tamanho para evitar strings malformatadas
+            return hex.length > 8 ? hex.substring(0, 8) : hex.padEnd(8, 'F');
+        };
+
+        const theme = {
+            headerBg: safeColor(schema.theme?.headerBg, defaultTheme.headerBg),
+            headerText: safeColor(schema.theme?.headerText, defaultTheme.headerText),
+            rowEvenBg: safeColor(schema.theme?.rowEvenBg, defaultTheme.rowEvenBg),
+            rowOddBg: safeColor(schema.theme?.rowOddBg, defaultTheme.rowOddBg),
+            borderColor: safeColor(schema.theme?.borderColor, defaultTheme.borderColor)
         };
 
         for (const sheetSchema of schema.sheets) {
@@ -43,12 +59,12 @@ export class SpreadsheetService {
                 cell.fill = {
                     type: 'pattern',
                     pattern: 'solid',
-                    fgColor: { argb: theme.headerBg.replace('#', 'FF') }
+                    fgColor: { argb: theme.headerBg }
                 };
                 cell.font = {
                     bold: true,
                     size: 12,
-                    color: { argb: theme.headerText.replace('#', 'FF') }
+                    color: { argb: theme.headerText }
                 };
                 cell.alignment = { vertical: 'middle', horizontal: 'center' };
             });
@@ -81,15 +97,15 @@ export class SpreadsheetService {
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
-                        fgColor: { argb: bgColor.replace('#', 'FF') }
+                        fgColor: { argb: bgColor }
                     };
 
                     // Aplicar bordas finas
                     cell.border = {
-                        top: { style: 'thin', color: { argb: theme.borderColor.replace('#', 'FF') } },
-                        left: { style: 'thin', color: { argb: theme.borderColor.replace('#', 'FF') } },
-                        bottom: { style: 'thin', color: { argb: theme.borderColor.replace('#', 'FF') } },
-                        right: { style: 'thin', color: { argb: theme.borderColor.replace('#', 'FF') } }
+                        top: { style: 'thin', color: { argb: theme.borderColor } },
+                        left: { style: 'thin', color: { argb: theme.borderColor } },
+                        bottom: { style: 'thin', color: { argb: theme.borderColor } },
+                        right: { style: 'thin', color: { argb: theme.borderColor } }
                     };
 
                     // Aplicar formatação de acordo com o tipo
