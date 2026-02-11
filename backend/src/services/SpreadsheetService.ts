@@ -30,23 +30,19 @@ export class SpreadsheetService {
         for (const sheetSchema of schema.sheets) {
             const worksheet = workbook.addWorksheet(sheetSchema.name);
 
-            // Configurações de View / Ações Automáticas
-            if (sheetSchema.freezePanes) {
-                worksheet.views = [
-                    { state: 'frozen', xSplit: sheetSchema.freezePanes.x || 0, ySplit: sheetSchema.freezePanes.y || 0 }
-                ];
-            }
+            // 1. Configurar colunas e formatos primeiro (headers vão para a linha 1 por padrão)
+            worksheet.columns = sheetSchema.columns.map((col: any) => ({
+                header: col.header,
+                key: col.key,
+                width: col.width || 20,
+                style: {
+                    alignment: { vertical: 'middle', horizontal: col.alignment || 'left' },
+                }
+            }));
 
-            if (sheetSchema.autoFilter) {
-                const lastColNum = sheetSchema.columns?.length || 1;
-                const lastCol = String.fromCharCode(64 + lastColNum);
-                const filterRow = sheetSchema.showTitle ? 2 : 1;
-                worksheet.autoFilter = `A${filterRow}:${lastCol}${filterRow}`;
-            }
-
-            // Título Visual no Topo
-            let startRow = 1;
+            // 2. Se tiver título, inserimos uma linha no topo e mesclamos
             if (sheetSchema.showTitle) {
+                worksheet.spliceRows(1, 0, []); // Insere linha vazia no topo, empurra headers para linha 2
                 const lastColNum = sheetSchema.columns?.length || 1;
                 const lastCol = String.fromCharCode(64 + lastColNum);
                 worksheet.mergeCells(`A1:${lastCol}1`);
@@ -61,21 +57,28 @@ export class SpreadsheetService {
                 };
                 titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
                 worksheet.getRow(1).height = 40;
-                startRow = 2;
             }
 
-            // Configurar colunas e formatos
-            worksheet.columns = sheetSchema.columns.map((col: any) => ({
-                header: col.header,
-                key: col.key,
-                width: col.width || 20,
-                style: {
-                    alignment: { vertical: 'middle', horizontal: col.alignment || 'left' },
-                }
-            }));
-
-            // Estilizar cabeçalho (agora pode ser na linha 1 ou 2)
+            // 3. Configurações de View / Filtros (após saber se temos título ou não)
             const headerRowNumber = sheetSchema.showTitle ? 2 : 1;
+
+            if (sheetSchema.freezePanes) {
+                worksheet.views = [
+                    {
+                        state: 'frozen',
+                        xSplit: sheetSchema.freezePanes.x || 0,
+                        ySplit: sheetSchema.showTitle ? (sheetSchema.freezePanes.y || 2) : (sheetSchema.freezePanes.y || 1)
+                    }
+                ];
+            }
+
+            if (sheetSchema.autoFilter) {
+                const lastColNum = sheetSchema.columns?.length || 1;
+                const lastCol = String.fromCharCode(64 + lastColNum);
+                worksheet.autoFilter = `A${headerRowNumber}:${lastCol}${headerRowNumber}`;
+            }
+
+            // 4. Estilizar cabeçalho
             const headerRow = worksheet.getRow(headerRowNumber);
             headerRow.height = 30;
             headerRow.eachCell((cell) => {
@@ -86,7 +89,7 @@ export class SpreadsheetService {
                 };
                 cell.font = {
                     bold: true,
-                    size: 12,
+                    size: 11,
                     color: { argb: theme.headerText }
                 };
                 cell.alignment = { vertical: 'middle', horizontal: 'center' };
