@@ -133,7 +133,7 @@ const clearHistory = () => {
       <header class="hero-section">
         <div class="badge animate-float">
           <Sparkles :size="14" />
-          <span>Powered by Gemini 2.0 Flash</span>
+          <span>Powered by britto.dev</span>
         </div>
         <h1 class="gradient-text">SheetAI.online</h1>
         <p>Transforme ideias em planilhas estruturadas instantaneamente.</p>
