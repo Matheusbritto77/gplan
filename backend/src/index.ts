@@ -1,15 +1,15 @@
-import express from "express";
-import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
+dotenv.config({ path: path.join(__dirname, "../../.env") });
+
+import express from "express";
+import cors from "cors";
 import { SpreadsheetController } from "./controllers/SpreadsheetController";
 import { MetaController } from "./controllers/MetaController";
 import { AuthController } from "./modules/auth/AuthController";
 import { PaymentController } from "./modules/payment/PaymentController";
 import { authMiddleware, AuthRequest } from "./middlewares/AuthMiddleware";
 import { CreditService } from "./modules/credits/CreditService";
-
-dotenv.config({ path: path.join(__dirname, "../../.env") });
 
 const app = express();
 const port = process.env.PORT || 80;

@@ -28,12 +28,12 @@ export class PaymentService {
                     type: 'subscription'
                 },
                 back_urls: {
-                    success: `${process.env.FRONTEND_URL || 'http://localhost'}/?payment=success`,
-                    failure: `${process.env.FRONTEND_URL || 'http://localhost'}/?payment=failure`,
-                    pending: `${process.env.FRONTEND_URL || 'http://localhost'}/?payment=pending`
+                    success: `${process.env.APP_URL || 'http://localhost'}/?payment=success`,
+                    failure: `${process.env.APP_URL || 'http://localhost'}/?payment=failure`,
+                    pending: `${process.env.APP_URL || 'http://localhost'}/?payment=pending`
                 },
                 auto_return: 'approved',
-                notification_url: `${process.env.BACKEND_URL || 'http://localhost'}/api/checkout/webhook`
+                notification_url: `${process.env.APP_URL || 'http://localhost'}/api/checkout/webhook`
             }
         });
 
