@@ -130,8 +130,7 @@ export class AdminService {
             ...(normalizedSearch
                 ? {
                     email: {
-                        contains: normalizedSearch,
-                        mode: "insensitive" as const
+                        contains: normalizedSearch
                     }
                 }
                 : {})

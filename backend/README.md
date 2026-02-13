@@ -29,7 +29,7 @@ npm run db:sync
 
 ## Variáveis obrigatórias
 
-- `DATABASE_URL` (PostgreSQL)
+- `DATABASE_URL` (MySQL)
 - `GEMINI_API_KEY`
 - `JWT_SECRET` (mínimo de 32 caracteres)
 - `APP_URL`

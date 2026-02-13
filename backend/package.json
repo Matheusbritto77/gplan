@@ -5,6 +5,7 @@
   "scripts": {
     "db:sync": "node ./scripts/prisma-with-env.js db push",
     "db:generate": "node ./scripts/prisma-with-env.js generate",
+    "db:check": "node ./scripts/check-db-connection.js",
     "dev": "npm run db:sync && ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "ts-node src/index.ts",
     "start:sync": "npm run db:sync && ts-node src/index.ts",
