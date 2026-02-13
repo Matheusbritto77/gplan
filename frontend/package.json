@@ -17,12 +17,14 @@
     "framer-motion": "^12.34.0",
     "lucide-vue-next": "^0.563.0",
     "tailwind-merge": "^3.4.0",
-    "vue": "^3.5.25"
+    "vue": "^3.5.25",
+    "x-data-spreadsheet": "^1.1.9"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^6.0.2",
     "@vue/tsconfig": "^0.8.1",
+    "less": "^4.5.1",
     "serve": "^14.2.5",
     "typescript": "~5.9.3",
     "vite": "^8.0.0-beta.13",

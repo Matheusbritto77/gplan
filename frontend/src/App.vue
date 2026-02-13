@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { api, AuthService } from './services/AuthService';
 import AuthModal from './components/AuthModal.vue';
 import AdminDashboard from './components/AdminDashboard.vue';
+import SpreadsheetPreview from './components/SpreadsheetPreview.vue';
 import { 
   Sparkles, Download, Loader2, 
   MessageSquare, ChevronRight,
@@ -38,72 +39,8 @@ const isAuthenticated = computed(() => Boolean(user.value?.id) && !isGuest.value
 const isPremium = computed(() => user.value?.plan === 'PREMIUM');
 const isAdmin = computed(() => Boolean(user.value?.isAdmin));
 const currentPlan = computed(() => isPremium.value ? 'PREMIUM' : 'FREE');
-const firstSheet = computed(() => currentSchema.value?.sheets?.[0] || null);
+const hasPreviewSheets = computed(() => (currentSchema.value?.sheets?.length || 0) > 0);
 const activeView = ref<'generator' | 'admin'>('generator');
-
-type PreviewTheme = {
-  headerBg: string;
-  headerText: string;
-  rowEvenBg: string;
-  rowOddBg: string;
-  borderColor: string;
-};
-
-const defaultPreviewTheme: PreviewTheme = {
-  headerBg: '#4F46E5',
-  headerText: '#FFFFFF',
-  rowEvenBg: '#F8FAFC',
-  rowOddBg: '#FFFFFF',
-  borderColor: '#E2E8F0'
-};
-
-const previewTheme = computed<PreviewTheme>(() => {
-  const rawTheme = currentSchema.value?.theme || {};
-  return {
-    headerBg: normalizeHexColor(rawTheme.headerBg, defaultPreviewTheme.headerBg),
-    headerText: normalizeHexColor(rawTheme.headerText, defaultPreviewTheme.headerText),
-    rowEvenBg: normalizeHexColor(rawTheme.rowEvenBg, defaultPreviewTheme.rowEvenBg),
-    rowOddBg: normalizeHexColor(rawTheme.rowOddBg, defaultPreviewTheme.rowOddBg),
-    borderColor: normalizeHexColor(rawTheme.borderColor, defaultPreviewTheme.borderColor)
-  };
-});
-
-const rowBackgroundAt = (idx: number): string => {
-  return idx % 2 === 0 ? previewTheme.value.rowEvenBg : previewTheme.value.rowOddBg;
-};
-
-const rowTextColorAt = (idx: number): string => {
-  return getReadableTextColor(rowBackgroundAt(idx));
-};
-
-function normalizeHexColor(input: unknown, fallback: string): string {
-  if (typeof input !== 'string') return fallback;
-
-  const normalized = input.trim();
-  if (/^#[0-9a-fA-F]{6}$/.test(normalized)) return normalized;
-  if (/^[0-9a-fA-F]{6}$/.test(normalized)) return `#${normalized}`;
-
-  return fallback;
-}
-
-function getReadableTextColor(backgroundHex: string): string {
-  const rgb = hexToRgb(backgroundHex);
-  if (!rgb) return '#0F172A';
-
-  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-  return luminance > 0.65 ? '#0F172A' : '#F8FAFC';
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const clean = hex.replace('#', '');
-  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return null;
-
-  return {
-    r: parseInt(clean.slice(0, 2), 16),
-    g: parseInt(clean.slice(2, 4), 16),
-    b: parseInt(clean.slice(4, 6), 16)
-  };
-}
 
 const pushToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
   toast.value = { message, type };
@@ -411,7 +348,7 @@ watch(isAdmin, (hasAdmin) => {
         </div>
 
         <transition name="preview-fade">
-          <section v-if="showPreview && firstSheet" class="preview-section glass-card">
+          <section v-if="showPreview && hasPreviewSheets" class="preview-section glass-card">
             <div class="preview-header">
               <div class="header-left">
                 <div class="status-token">Pronta para Download</div>
@@ -428,31 +365,8 @@ watch(isAdmin, (hasAdmin) => {
               </div>
             </div>
 
-            <div class="table-wrapper" :style="{ borderColor: previewTheme.borderColor }">
-              <table>
-                <thead>
-                  <tr :style="{ background: previewTheme.headerBg, color: previewTheme.headerText }">
-                    <th v-for="col in firstSheet.columns" :key="col.key">
-                      <div class="th-inner">
-                        {{ col.header }}
-                        <span class="type-badge">{{ col.type || col.format || 'text' }}</span>
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, idx) in firstSheet.rows" :key="idx"
-                      :style="{ background: rowBackgroundAt(Number(idx)), color: rowTextColorAt(Number(idx)) }">
-                    <td v-for="col in firstSheet.columns" :key="col.key"
-                        :style="{ borderColor: previewTheme.borderColor, textAlign: col.alignment || 'left', color: rowTextColorAt(Number(idx)) }">
-                      <span v-if="typeof row[col.key] === 'object' && row[col.key]?.formula" class="formula-pill">
-                         {{ row[col.key].formula }}
-                      </span>
-                      <span v-else>{{ row[col.key] }}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="excel-preview-area">
+              <SpreadsheetPreview :schema="currentSchema" />
             </div>
           </section>
         </transition>
@@ -700,17 +614,7 @@ watch(isAdmin, (hasAdmin) => {
 .btn-action.xlsx { background: white; color: #020617; }
 .btn-action.csv { background: rgba(255,255,255,0.05); color: white; }
 
-.table-wrapper { border-radius: 16px; overflow: hidden; border: 1px solid; margin-top: 10px; }
-table { width: 100%; border-collapse: collapse; min-width: 680px; }
-th { padding: 16px; text-align: left; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; }
-.th-inner { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.type-badge { font-size: 0.6rem; opacity: 0.7; padding: 2px 6px; border: 1px solid currentColor; border-radius: 4px; }
-td { padding: 14px 16px; font-size: 0.95rem; border-bottom: 1px solid var(--glass-border); }
-
-.formula-pill { 
-    font-family: monospace; font-size: 0.8rem; background: rgba(15, 23, 42, 0.4);
-    padding: 4px 8px; border-radius: 6px; color: var(--primary);
-}
+.excel-preview-area { margin-top: 10px; }
 
 .refinement-card { padding: 32px; border-left: 6px solid var(--primary); }
 .refine-header { display: flex; gap: 20px; align-items: center; margin-bottom: 24px; }
@@ -910,16 +814,6 @@ td { padding: 14px 16px; font-size: 0.95rem; border-bottom: 1px solid var(--glas
     width: 100%;
     justify-content: center;
     min-height: 44px;
-  }
-
-  .table-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  th,
-  td {
-    padding: 12px 10px;
   }
 
   .refinement-card {
