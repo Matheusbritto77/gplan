@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String?        @unique
+  password      String?
+  credits       Float          @default(100)
+  isGuest       Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+  transactions  Transaction[]
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  plan      String   @default("monthly")
+  status    String   @default("active")
+  startDate DateTime @default(now())
+  endDate   DateTime?
+}
+
+model Transaction {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  amount     Float
+  type       String   // CREDIT_PURCHASE, USAGE, GUEST_WELCOME
+  provider   String?  // mercadopago
+  externalId String?  @unique
+  status     String   @default("pending")
+  description String?
+  createdAt  DateTime @default(now())
+}
