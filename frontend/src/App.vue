@@ -392,7 +392,9 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
 .hero-section h1 { font-size: 3.5rem; font-weight: 900; margin: 16px 0; line-height: 1.1; }
 
 .generator-area { padding: 32px; }
-.premium-input { min-height: 120px; font-size: 1.2rem; line-height: 1.5; padding: 12px; }
+.premium-input { 
+  min-height: 160px;
+}
 
 .controls { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
 .generate-btn { padding: 16px 40px; border-radius: 16px; font-size: 1.1rem; }
