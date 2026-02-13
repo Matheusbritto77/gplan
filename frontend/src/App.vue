@@ -20,6 +20,8 @@ const suggestions = ref<string[]>([]);
 const currentSchema = ref<any>(null);
 const history = ref<any[]>([]);
 const toast = ref<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+const authModalTitle = ref('');
+const authModalSubtitle = ref('');
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Estados de Autenticação e Créditos
@@ -30,6 +32,9 @@ const mpLoading = ref(false);
 
 const isGuest = computed(() => user.value?.isGuest);
 const credits = computed(() => user.value?.credits || 0);
+const isAuthenticated = computed(() => Boolean(user.value?.id) && !isGuest.value);
+const isPremium = computed(() => user.value?.plan === 'PREMIUM');
+const currentPlan = computed(() => isPremium.value ? 'PREMIUM' : 'FREE');
 const firstSheet = computed(() => currentSchema.value?.sheets?.[0] || null);
 
 const pushToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -47,8 +52,7 @@ onMounted(async () => {
   try {
     user.value = await AuthService.getMe();
   } catch (e) {
-    const guest = await AuthService.getGuestSession();
-    user.value = guest.user;
+    user.value = null;
   }
 
   const saved = localStorage.getItem('sheet_history');
@@ -64,7 +68,11 @@ onMounted(async () => {
   if (urlParams.get('payment') === 'success') {
     pushToast('Pagamento aprovado. Seus 600 créditos serão adicionados em instantes.', 'success');
     window.history.replaceState({}, document.title, window.location.pathname);
-    user.value = await AuthService.getMe();
+    try {
+      user.value = await AuthService.getMe();
+    } catch {
+      user.value = null;
+    }
   } else if (urlParams.get('payment') === 'failure') {
     pushToast('Pagamento não concluído. Tente novamente.', 'error');
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -76,15 +84,26 @@ onMounted(async () => {
 
 const handleAuthSuccess = async () => {
   user.value = await AuthService.getMe();
+  pushToast(`Login realizado. Você está no plano ${currentPlan.value} com ${credits.value} créditos.`, 'success');
 };
 
 const logout = async () => {
   await AuthService.logout();
-  const guest = await AuthService.getGuestSession();
-  user.value = guest.user;
+  user.value = null;
   showPreview.value = false;
   askingMoreInfo.value = false;
   pushToast('Sessão encerrada com sucesso.', 'info');
+};
+
+const openAuth = (
+  mode: 'login' | 'register',
+  title: string,
+  subtitle: string
+) => {
+  authMode.value = mode;
+  authModalTitle.value = title;
+  authModalSubtitle.value = subtitle;
+  showAuth.value = true;
 };
 
 const saveToHistory = (schema: any) => {
@@ -101,6 +120,16 @@ const saveToHistory = (schema: any) => {
 const processPrompt = async (forcedPrompt?: string) => {
   const finalPrompt = forcedPrompt || prompt.value;
   if (!finalPrompt.trim() || loading.value) return;
+
+  if (!isAuthenticated.value) {
+    openAuth(
+      'register',
+      'Entre para gerar planilhas',
+      'Crie sua conta ou faça login para liberar 100 créditos grátis e começar a gerar.'
+    );
+    pushToast('Faça login para gerar planilhas com IA.', 'info');
+    return;
+  }
 
   loading.value = true;
   askingMoreInfo.value = false;
@@ -127,13 +156,18 @@ const processPrompt = async (forcedPrompt?: string) => {
     }
   } catch (error: any) {
     console.error('Error:', error);
+    if (error.response?.status === 401) {
+      user.value = null;
+      openAuth(
+        'login',
+        'Sua sessão expirou',
+        'Faça login novamente para continuar gerando suas planilhas.'
+      );
+      return;
+    }
+
     if (error.response?.status === 402) {
-      if (isGuest.value) {
-        authMode.value = 'register';
-        showAuth.value = true;
-      } else {
-        pushToast('Créditos insuficientes. Assine o plano premium para continuar.', 'error');
-      }
+      pushToast('Créditos insuficientes. Faça upgrade para o plano premium para continuar.', 'error');
     } else {
       pushToast(error.response?.data?.error || 'Erro ao processar sua solicitação', 'error');
     }
@@ -143,9 +177,12 @@ const processPrompt = async (forcedPrompt?: string) => {
 };
 
 const handleSubscribe = async () => {
-  if (isGuest.value) {
-    authMode.value = 'register';
-    showAuth.value = true;
+  if (!isAuthenticated.value) {
+    openAuth(
+      'register',
+      'Crie sua conta para assinar',
+      'Cadastre-se para liberar 100 créditos grátis e depois ativar o plano premium.'
+    );
     return;
   }
 
@@ -205,19 +242,29 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
           </div>
         </div>
 
-        <div v-if="user && !isGuest" class="user-profile">
+        <div v-if="isAuthenticated" class="user-profile">
           <div class="user-info">
             <span class="email">{{ user.email }}</span>
-            <div class="plan-badge">
+            <div class="plan-badge" :class="{ premium: isPremium, free: !isPremium }">
               <Star :size="10" />
-              <span>PREMIUM</span>
+              <span>{{ currentPlan }}</span>
             </div>
           </div>
           <button @click="logout" class="icon-btn logout-btn" title="Sair" aria-label="Sair da conta"><LogOut :size="18" /></button>
         </div>
         <div v-else class="auth-group">
-          <button @click="authMode = 'login'; showAuth = true" class="btn-ghost">Logar</button>
-          <button @click="authMode = 'register'; showAuth = true" class="btn-primary small">Começar Grátis</button>
+          <button
+            @click="openAuth('login', 'Acesse sua conta', 'Faça login para continuar com seus créditos e histórico.')"
+            class="btn-ghost"
+          >
+            Logar
+          </button>
+          <button
+            @click="openAuth('register', 'Comece com 100 créditos grátis', 'Crie sua conta para desbloquear geração de planilhas.')"
+            class="btn-primary small"
+          >
+            Começar Grátis
+          </button>
         </div>
       </div>
     </nav>
@@ -240,6 +287,10 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
             @keydown.enter.ctrl="processPrompt()"
           ></textarea>
         </div>
+
+        <div v-if="!isAuthenticated" class="auth-lock-banner">
+          Faça login para gerar planilhas. Novas contas recebem 100 créditos grátis.
+        </div>
         
         <div class="generator-footer">
           <div class="usage-hint">
@@ -254,7 +305,7 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
         </div>
       </section>
 
-      <div v-if="credits < 10 && !loading" class="floating-promo animate-slide-in">
+      <div v-if="isAuthenticated && !isPremium && credits < 10 && !loading" class="floating-promo animate-slide-in">
         <div class="promo-content">
            <CreditCard class="promo-icon" />
            <div class="promo-text">
@@ -348,6 +399,8 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
     <AuthModal 
       :is-open="showAuth" 
       :initial-mode="authMode"
+      :title="authModalTitle"
+      :subtitle="authModalSubtitle"
       @close="showAuth = false" 
       @success="handleAuthSuccess"
     />
@@ -418,7 +471,13 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
 .email { font-size: 0.85rem; font-weight: 700; color: var(--text-main); }
 .plan-badge { 
     display: flex; align-items: center; gap: 4px; 
-    color: #fbbf24; font-size: 0.65rem; font-weight: 900; 
+    font-size: 0.65rem; font-weight: 900; 
+}
+.plan-badge.premium {
+    color: #fbbf24;
+}
+.plan-badge.free {
+    color: #22d3ee;
 }
 
 .logout-btn { 
@@ -460,6 +519,16 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
 
 .generator-container { padding: 40px; }
 .main-input { min-height: 180px; resize: none; font-size: 1.2rem; }
+.auth-lock-banner {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px dashed rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.12);
+  color: #c7d2fe;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
 
 .generator-footer {
     display: flex; justify-content: space-between; align-items: center;

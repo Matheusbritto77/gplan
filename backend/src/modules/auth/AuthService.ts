@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 const JWT_EXPIRATION = '7d';
+const WELCOME_CREDITS = 100;
 
 export type PublicUser = Omit<User, 'password'>;
 
@@ -14,36 +15,17 @@ type AuthTokenPayload = {
 };
 
 export class AuthService {
-    async register(email: string, password: string, guestId?: string): Promise<{ user: PublicUser; token: string }> {
+    async register(email: string, password: string): Promise<{ user: PublicUser; token: string }> {
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        let user: User;
-
-        if (guestId) {
-            const guestUser = await prisma.user.findUnique({ where: { id: guestId } });
-            if (!guestUser || !guestUser.isGuest) {
-                throw new Error("Conta convidada inválida");
+        const user = await prisma.user.create({
+            data: {
+                email,
+                password: hashedPassword,
+                isGuest: false,
+                credits: WELCOME_CREDITS
             }
-
-            user = await prisma.user.update({
-                where: { id: guestId },
-                data: {
-                    email,
-                    password: hashedPassword,
-                    isGuest: false,
-                    credits: 100 // Garante os 100 créditos iniciais se ele era guest
-                }
-            });
-        } else {
-            user = await prisma.user.create({
-                data: {
-                    email,
-                    password: hashedPassword,
-                    isGuest: false,
-                    credits: 0
-                }
-            });
-        }
+        });
 
         const token = this.generateToken(user);
         return { user: this.toPublicUser(user), token };
@@ -69,7 +51,7 @@ export class AuthService {
         const user = await prisma.user.create({
             data: {
                 isGuest: true,
-                credits: 100
+                credits: 0
             }
         });
 

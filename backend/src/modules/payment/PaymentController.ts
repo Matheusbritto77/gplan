@@ -15,6 +15,10 @@ export class PaymentController {
                 return res.status(401).json({ error: 'Token inválido' });
             }
 
+            if (req.user.isGuest) {
+                return res.status(403).json({ error: 'Faça login para assinar o plano premium.' });
+            }
+
             const userId = req.user.sub;
             const result = await this.paymentService.createSubscriptionPreference(userId);
             res.json(result);

@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { AuthService } from './AuthService';
-import { AuthRequest } from '../../middlewares/AuthMiddleware';
 
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -13,16 +12,9 @@ export class AuthController {
 
     async register(req: Request, res: Response) {
         try {
-            const { email, password, guestId } = req.body;
-            const authReq = req as AuthRequest;
+            const { email, password } = req.body;
 
-            if (guestId) {
-                if (!authReq.user || authReq.user.sub !== guestId || !authReq.user.isGuest) {
-                    return res.status(403).json({ error: 'Conversão de conta convidada não autorizada' });
-                }
-            }
-
-            const result = await this.authService.register(email, password, guestId);
+            const result = await this.authService.register(email, password);
             this.setAuthCookie(res, result.token);
             res.json({ user: result.user });
         } catch (error: any) {

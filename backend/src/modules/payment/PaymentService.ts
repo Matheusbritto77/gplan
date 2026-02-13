@@ -5,18 +5,18 @@ import crypto from 'crypto';
 import { IncomingHttpHeaders } from 'http';
 
 const prisma = new PrismaClient();
-const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || '';
-const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET || '';
-
-const client = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 const creditService = new CreditService();
+const MONTHLY_CREDITS = 600;
+const MONTHLY_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export class PaymentService {
     async createSubscriptionPreference(userId: string) {
-        if (!MP_ACCESS_TOKEN) {
+        const accessToken = this.getAccessToken();
+        if (!accessToken) {
             throw new Error('MP_ACCESS_TOKEN não configurado');
         }
 
+        const client = new MercadoPagoConfig({ accessToken });
         const preference = new Preference(client);
 
         const response = await preference.create({
@@ -49,7 +49,8 @@ export class PaymentService {
     }
 
     isWebhookSignatureValid(headers: IncomingHttpHeaders, payload: any): boolean {
-        if (!MP_WEBHOOK_SECRET) {
+        const webhookSecret = this.getWebhookSecret();
+        if (!webhookSecret) {
             return process.env.NODE_ENV !== 'production';
         }
 
@@ -68,7 +69,7 @@ export class PaymentService {
 
         const manifest = `id:${dataId};request-id:${requestId};ts:${signatureParts.ts};`;
         const expected = crypto
-            .createHmac('sha256', MP_WEBHOOK_SECRET)
+            .createHmac('sha256', webhookSecret)
             .update(manifest)
             .digest('hex');
 
@@ -76,10 +77,12 @@ export class PaymentService {
     }
 
     async handleWebhook(payload: any) {
-        if (!MP_ACCESS_TOKEN) {
+        const accessToken = this.getAccessToken();
+        if (!accessToken) {
             throw new Error('MP_ACCESS_TOKEN não configurado');
         }
 
+        const client = new MercadoPagoConfig({ accessToken });
         const type = payload?.type || payload?.topic;
         const paymentId = payload?.data?.id || payload?.id;
 
@@ -94,17 +97,8 @@ export class PaymentService {
                 if (userId && externalId) {
                     const existing = await prisma.transaction.findUnique({ where: { externalId } });
                     if (!existing) {
-                        await creditService.addCredits(userId, 600, externalId);
-
-                        await prisma.subscription.create({
-                            data: {
-                                userId,
-                                plan: 'monthly',
-                                status: 'active',
-                                startDate: new Date(),
-                                endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                            }
-                        });
+                        await creditService.addCredits(userId, MONTHLY_CREDITS, externalId);
+                        await this.activateOrExtendSubscription(userId);
                     }
                 }
             }
@@ -147,5 +141,63 @@ export class PaymentService {
         }
 
         return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+    }
+
+    private async activateOrExtendSubscription(userId: string) {
+        const now = new Date();
+
+        await prisma.subscription.updateMany({
+            where: {
+                userId,
+                status: 'active',
+                endDate: { lte: now }
+            },
+            data: { status: 'expired' }
+        });
+
+        const activeSubscription = await prisma.subscription.findFirst({
+            where: {
+                userId,
+                status: 'active',
+                OR: [
+                    { endDate: null },
+                    { endDate: { gt: now } }
+                ]
+            },
+            orderBy: { endDate: 'desc' }
+        });
+
+        if (!activeSubscription) {
+            await prisma.subscription.create({
+                data: {
+                    userId,
+                    plan: 'monthly',
+                    status: 'active',
+                    startDate: now,
+                    endDate: new Date(now.getTime() + MONTHLY_DURATION_MS)
+                }
+            });
+            return;
+        }
+
+        const baseDate = activeSubscription.endDate && activeSubscription.endDate > now
+            ? activeSubscription.endDate
+            : now;
+
+        await prisma.subscription.update({
+            where: { id: activeSubscription.id },
+            data: {
+                status: 'active',
+                endDate: new Date(baseDate.getTime() + MONTHLY_DURATION_MS)
+            }
+        });
+    }
+
+    private getAccessToken(): string {
+        return process.env.MP_ACCESS_TOKEN || '';
+    }
+
+    private getWebhookSecret(): string {
+        return process.env.MP_WEBHOOK_SECRET || '';
     }
 }

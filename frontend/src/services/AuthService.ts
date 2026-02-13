@@ -6,8 +6,8 @@ const api = axios.create({
 });
 
 export const AuthService = {
-    async register(email: string, password: string, guestId?: string) {
-        const response = await api.post('/auth/register', { email, password, guestId });
+    async register(email: string, password: string) {
+        const response = await api.post('/auth/register', { email, password });
         this.setSession(response.data.user);
         return response.data;
     },
@@ -16,16 +16,6 @@ export const AuthService = {
         const response = await api.post('/auth/login', { email, password });
         this.setSession(response.data.user);
         return response.data;
-    },
-
-    async getGuestSession() {
-        const response = await api.post('/auth/guest');
-        this.setSession(response.data.user);
-        return response.data;
-    },
-
-    async getGuestToken() {
-        return this.getGuestSession();
     },
 
     async getMe() {

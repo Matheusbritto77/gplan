@@ -6,6 +6,8 @@ import { X, Mail, Lock, LogIn, Loader2, AlertCircle, CheckCircle2 } from 'lucide
 const props = defineProps<{
     isOpen: boolean;
     initialMode?: 'login' | 'register';
+    title?: string;
+    subtitle?: string;
 }>();
 
 const emit = defineEmits(['close', 'success']);
@@ -58,11 +60,8 @@ const handleSubmit = async () => {
     loading.value = true;
     error.value = '';
     try {
-        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-        const guestId = currentUser.isGuest ? currentUser.id : undefined;
-
         if (mode.value === 'register') {
-            await AuthService.register(email.value, password.value, guestId);
+            await AuthService.register(email.value, password.value);
         } else {
             await AuthService.login(email.value, password.value);
         }
@@ -85,10 +84,10 @@ const handleSubmit = async () => {
                 <div class="brand-badge">
                     <CheckCircle2 v-if="mode === 'register'" :size="16" />
                     <LogIn v-else :size="16" />
-                    <span>{{ mode === 'register' ? 'PREMIUM ACCESS' : 'MEMBER LOGIN' }}</span>
+                    <span>{{ mode === 'register' ? 'COMECE AGORA' : 'ACESSAR CONTA' }}</span>
                 </div>
-                <h2>{{ mode === 'register' ? 'Crie sua conta' : 'Bem-vindo de volta' }}</h2>
-                <p>{{ mode === 'register' ? 'Junte-se a consultores que já economizam horas com IA.' : 'Continue de onde parou em seu painel.' }}</p>
+                <h2>{{ props.title || (mode === 'register' ? 'Crie sua conta' : 'Bem-vindo de volta') }}</h2>
+                <p>{{ props.subtitle || (mode === 'register' ? 'Ganhe 100 créditos grátis e comece a gerar suas planilhas.' : 'Faça login para continuar de onde parou.') }}</p>
             </div>
 
             <form @submit.prevent="handleSubmit" class="auth-form">

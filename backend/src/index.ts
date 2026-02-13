@@ -1,6 +1,18 @@
 import dotenv from "dotenv";
 import path from "path";
-dotenv.config({ path: path.join(__dirname, "../../.env") });
+import fs from "fs";
+
+const envCandidates = [
+    path.resolve(process.cwd(), ".env"),
+    path.resolve(__dirname, "../.env"),
+    path.resolve(__dirname, "../../.env")
+];
+
+for (const envPath of envCandidates) {
+    if (fs.existsSync(envPath)) {
+        dotenv.config({ path: envPath, override: false });
+    }
+}
 
 import express from "express";
 import cors from "cors";
@@ -9,7 +21,7 @@ import { SpreadsheetController } from "./controllers/SpreadsheetController";
 import { MetaController } from "./controllers/MetaController";
 import { AuthController } from "./modules/auth/AuthController";
 import { PaymentController } from "./modules/payment/PaymentController";
-import { authMiddleware, AuthRequest, optionalAuthMiddleware } from "./middlewares/AuthMiddleware";
+import { authMiddleware, AuthRequest } from "./middlewares/AuthMiddleware";
 import { CreditService } from "./modules/credits/CreditService";
 import { createRateLimiter } from "./middlewares/RateLimitMiddleware";
 import { downloadRequestSchema, metaEventRequestSchema, processRequestSchema } from "./validators/requestSchemas";
@@ -70,6 +82,13 @@ const checkoutLimiter = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 15, ke
 const webhookLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 120, keyPrefix: "webhook" });
 const analyticsLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 90, keyPrefix: "meta" });
 
+if (!apiKey) {
+    console.warn("Aviso: GEMINI_API_KEY não configurada. As rotas de IA irão falhar.");
+}
+if (!process.env.MP_ACCESS_TOKEN) {
+    console.warn("Aviso: MP_ACCESS_TOKEN não configurado. Checkout premium ficará indisponível.");
+}
+
 // Health Check
 app.get("/apihealth", (req, res) => {
     res.send("API is running");
@@ -82,12 +101,9 @@ const validate = (req: any, res: any, next: any) => {
     next();
 };
 
-app.post("/api/auth/guest", authLimiter as any, (req, res) => authController.guest(req, res));
-
 app.post(
     "/api/auth/register",
     authLimiter as any,
-    optionalAuthMiddleware as any,
     [
         body("email").isEmail().withMessage("E-mail inválido"),
         body("password").isLength({ min: 8 }).withMessage("A senha deve ter pelo menos 8 caracteres"),
@@ -119,8 +135,15 @@ app.get("/api/user/me", authMiddleware as any, async (req, res) => {
         return res.status(401).json({ error: "Token inválido" });
     }
 
-    const balance = await creditService.getUserBalance(authReq.user.sub);
-    res.json({ ...authReq.user, credits: balance });
+    const account = await creditService.getAccountStatus(authReq.user.sub);
+    res.json({
+        id: account.id,
+        email: account.email,
+        isGuest: account.isGuest,
+        credits: account.credits,
+        plan: account.plan,
+        subscriptionEndsAt: account.subscriptionEndsAt
+    });
 });
 
 app.post("/api/meta/event", analyticsLimiter as any, (req, res) => {
@@ -138,6 +161,11 @@ app.post("/api/process", authMiddleware as any, processLimiter as any, async (re
         const authReq = req as AuthRequest;
         if (!authReq.user) {
             return res.status(401).json({ error: "Token inválido" });
+        }
+
+        const account = await creditService.getAccountStatus(authReq.user.sub);
+        if (account.isGuest) {
+            return res.status(401).json({ error: "Faça login para gerar planilhas." });
         }
 
         const parsed = processRequestSchema.safeParse(req.body);
