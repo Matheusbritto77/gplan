@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "ts-node src/index.ts",
-    "build": "npx tsc"
+    "build": "npx prisma generate && npx tsc",
+    "postinstall": "npx prisma generate"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
