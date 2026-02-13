@@ -25,6 +25,9 @@ import { authMiddleware, AuthRequest } from "./middlewares/AuthMiddleware";
 import { CreditService } from "./modules/credits/CreditService";
 import { createRateLimiter } from "./middlewares/RateLimitMiddleware";
 import { downloadRequestSchema, metaEventRequestSchema, processRequestSchema } from "./validators/requestSchemas";
+import { adminMiddleware } from "./middlewares/AdminMiddleware";
+import { AdminController } from "./modules/admin/AdminController";
+import { isAdminEmail } from "./utils/AdminUtils";
 
 const app = express();
 const port = process.env.PORT || 80;
@@ -74,6 +77,7 @@ const controller = new SpreadsheetController(apiKey);
 const metaController = new MetaController();
 const authController = new AuthController();
 const paymentController = new PaymentController();
+const adminController = new AdminController();
 const creditService = new CreditService();
 const CREDITS_PER_GENERATION = 20;
 const authLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 30, keyPrefix: "auth" });
@@ -143,8 +147,17 @@ app.get("/api/user/me", authMiddleware as any, async (req, res) => {
         isGuest: account.isGuest,
         credits: account.credits,
         plan: account.plan,
-        subscriptionEndsAt: account.subscriptionEndsAt
+        subscriptionEndsAt: account.subscriptionEndsAt,
+        isAdmin: isAdminEmail(account.email)
     });
+});
+
+app.get("/api/admin/overview", authMiddleware as any, adminMiddleware as any, (req, res) => {
+    return adminController.getOverview(req, res);
+});
+
+app.get("/api/admin/users", authMiddleware as any, adminMiddleware as any, (req, res) => {
+    return adminController.listUsers(req, res);
 });
 
 app.post("/api/meta/event", analyticsLimiter as any, (req, res) => {

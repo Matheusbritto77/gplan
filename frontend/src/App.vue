@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { api, AuthService } from './services/AuthService';
 import AuthModal from './components/AuthModal.vue';
+import AdminDashboard from './components/AdminDashboard.vue';
 import { 
   Sparkles, Download, Loader2, 
   MessageSquare, ChevronRight,
   Info,
-  CreditCard, LogOut, Wallet, Star
+  CreditCard, LogOut, Wallet, Star, LayoutDashboard
 } from 'lucide-vue-next';
 import { AnalyticsService } from './services/AnalyticsService';
 
@@ -35,8 +36,10 @@ const isGuest = computed(() => user.value?.isGuest);
 const credits = computed(() => user.value?.credits || 0);
 const isAuthenticated = computed(() => Boolean(user.value?.id) && !isGuest.value);
 const isPremium = computed(() => user.value?.plan === 'PREMIUM');
+const isAdmin = computed(() => Boolean(user.value?.isAdmin));
 const currentPlan = computed(() => isPremium.value ? 'PREMIUM' : 'FREE');
 const firstSheet = computed(() => currentSchema.value?.sheets?.[0] || null);
+const activeView = ref<'generator' | 'admin'>('generator');
 
 type PreviewTheme = {
   headerBg: string;
@@ -155,9 +158,15 @@ const handleAuthSuccess = async () => {
 const logout = async () => {
   await AuthService.logout();
   user.value = null;
+  activeView.value = 'generator';
   showPreview.value = false;
   askingMoreInfo.value = false;
   pushToast('Sessão encerrada com sucesso.', 'info');
+};
+
+const toggleAdminView = () => {
+  if (!isAdmin.value) return;
+  activeView.value = activeView.value === 'admin' ? 'generator' : 'admin';
 };
 
 const openAuth = (
@@ -284,6 +293,12 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
     pushToast('Erro ao baixar arquivo.', 'error');
   }
 };
+
+watch(isAdmin, (hasAdmin) => {
+  if (!hasAdmin && activeView.value === 'admin') {
+    activeView.value = 'generator';
+  }
+});
 </script>
 
 <template>
@@ -306,6 +321,16 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
             <span v-else>+</span>
           </div>
         </div>
+
+        <button
+          v-if="isAdmin"
+          class="admin-toggle-btn"
+          :class="{ active: activeView === 'admin' }"
+          @click="toggleAdminView"
+        >
+          <LayoutDashboard :size="16" />
+          <span>{{ activeView === 'admin' ? 'Modo Gerador' : 'Painel Admin' }}</span>
+        </button>
 
         <div v-if="isAuthenticated" class="user-profile">
           <div class="user-info">
@@ -335,124 +360,130 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
     </nav>
 
     <main class="main-content">
-      <header class="hero-section">
-        <div class="hero-badge animate-float">
-          <span>Nova era de produtividade</span>
-        </div>
-        <h1 class="gradient-text">Planilhas inteligentes em segundos.</h1>
-        <p class="hero-desc">Descreva sua necessidade em linguagem natural e deixe nossa IA estruturar dados, fórmulas e design para você.</p>
-      </header>
-
-      <section class="generator-container glass-card">
-        <div class="input-area">
-          <textarea 
-            v-model="prompt" 
-            placeholder="Ex: Tabela de fluxo de caixa para petshop com soma automática e gráfico de barras..."
-            class="premium-input main-input"
-            @keydown.enter.ctrl="processPrompt()"
-          ></textarea>
-        </div>
-
-        <div v-if="!isAuthenticated" class="auth-lock-banner">
-          Faça login para gerar planilhas. Novas contas recebem 100 créditos grátis.
-        </div>
-        
-        <div class="generator-footer">
-          <div class="usage-hint">
-             <Info :size="14" />
-             <span>Pressione <b>Ctrl + Enter</b> para gerar</span>
+      <template v-if="activeView === 'generator'">
+        <header class="hero-section">
+          <div class="hero-badge animate-float">
+            <span>Nova era de produtividade</span>
           </div>
-          <button @click="processPrompt()" :disabled="loading" class="btn-primary large">
-            <Loader2 v-if="loading" class="spin" />
-            <Sparkles v-else :size="20" />
-            <span>{{ loading ? 'IA Estruturando...' : 'Gerar Estrutura Premium' }}</span>
-          </button>
-        </div>
-      </section>
+          <h1 class="gradient-text">Planilhas inteligentes em segundos.</h1>
+          <p class="hero-desc">Descreva sua necessidade em linguagem natural e deixe nossa IA estruturar dados, fórmulas e design para você.</p>
+        </header>
 
-      <div v-if="isAuthenticated && !isPremium && credits < CREDITS_PER_GENERATION && !loading" class="floating-promo animate-slide-in">
-        <div class="promo-content">
-           <CreditCard class="promo-icon" />
-           <div class="promo-text">
-             <h4>Aumente seu limite</h4>
-             <p>600 créditos mensais por apenas <b>R$ 30</b></p>
-           </div>
-        </div>
-        <button @click="handleSubscribe" class="btn-promo-action" :disabled="mpLoading">
-           <span v-if="!mpLoading">Atualizar Plano</span>
-           <Loader2 v-else class="spin" />
-        </button>
-      </div>
+        <section class="generator-container glass-card">
+          <div class="input-area">
+            <textarea 
+              v-model="prompt" 
+              placeholder="Ex: Tabela de fluxo de caixa para petshop com soma automática e gráfico de barras..."
+              class="premium-input main-input"
+              @keydown.enter.ctrl="processPrompt()"
+            ></textarea>
+          </div>
 
-      <transition name="preview-fade">
-        <section v-if="showPreview && firstSheet" class="preview-section glass-card">
-          <div class="preview-header">
-            <div class="header-left">
-              <div class="status-token">Pronta para Download</div>
-              <h2>{{ currentSchema.title }}</h2>
-              <p>{{ currentSchema.description }}</p>
+          <div v-if="!isAuthenticated" class="auth-lock-banner">
+            Faça login para gerar planilhas. Novas contas recebem 100 créditos grátis.
+          </div>
+          
+          <div class="generator-footer">
+            <div class="usage-hint">
+               <Info :size="14" />
+               <span>Pressione <b>Ctrl + Enter</b> para gerar</span>
             </div>
-            <div class="header-right">
-              <button @click="downloadSpreadsheet('xlsx')" class="btn-action xlsx">
-                <Download :size="18" /> Excel Full (.xlsx)
-              </button>
-              <button @click="downloadSpreadsheet('csv')" class="btn-action csv">
-                 CSV
-              </button>
-            </div>
-          </div>
-
-          <div class="table-wrapper" :style="{ borderColor: previewTheme.borderColor }">
-            <table>
-              <thead>
-                <tr :style="{ background: previewTheme.headerBg, color: previewTheme.headerText }">
-                  <th v-for="col in firstSheet.columns" :key="col.key">
-                    <div class="th-inner">
-                      {{ col.header }}
-                      <span class="type-badge">{{ col.type || col.format || 'text' }}</span>
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, idx) in firstSheet.rows" :key="idx"
-                    :style="{ background: rowBackgroundAt(Number(idx)), color: rowTextColorAt(Number(idx)) }">
-                  <td v-for="col in firstSheet.columns" :key="col.key"
-                      :style="{ borderColor: previewTheme.borderColor, textAlign: col.alignment || 'left', color: rowTextColorAt(Number(idx)) }">
-                    <span v-if="typeof row[col.key] === 'object' && row[col.key]?.formula" class="formula-pill">
-                       {{ row[col.key].formula }}
-                    </span>
-                    <span v-else>{{ row[col.key] }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </transition>
-
-      <transition name="refine-slide">
-        <section v-if="askingMoreInfo" class="refinement-card glass-card">
-          <div class="refine-header">
-            <MessageSquare class="refine-icon" />
-            <div class="refine-title">
-              <h3>Refinamento Inteligente</h3>
-              <p>{{ question }}</p>
-            </div>
-          </div>
-          <div class="suggestions-list">
-            <button 
-              v-for="sug in suggestions" 
-              :key="sug" 
-              @click="useSuggestion(sug)"
-              class="suggestion-item"
-            >
-              <span>{{ sug }}</span>
-              <ChevronRight :size="14" />
+            <button @click="processPrompt()" :disabled="loading" class="btn-primary large">
+              <Loader2 v-if="loading" class="spin" />
+              <Sparkles v-else :size="20" />
+              <span>{{ loading ? 'IA Estruturando...' : 'Gerar Estrutura Premium' }}</span>
             </button>
           </div>
         </section>
-      </transition>
+
+        <div v-if="isAuthenticated && !isPremium && credits < CREDITS_PER_GENERATION && !loading" class="floating-promo animate-slide-in">
+          <div class="promo-content">
+             <CreditCard class="promo-icon" />
+             <div class="promo-text">
+               <h4>Aumente seu limite</h4>
+               <p>600 créditos mensais por apenas <b>R$ 30</b></p>
+             </div>
+          </div>
+          <button @click="handleSubscribe" class="btn-promo-action" :disabled="mpLoading">
+             <span v-if="!mpLoading">Atualizar Plano</span>
+             <Loader2 v-else class="spin" />
+          </button>
+        </div>
+
+        <transition name="preview-fade">
+          <section v-if="showPreview && firstSheet" class="preview-section glass-card">
+            <div class="preview-header">
+              <div class="header-left">
+                <div class="status-token">Pronta para Download</div>
+                <h2>{{ currentSchema.title }}</h2>
+                <p>{{ currentSchema.description }}</p>
+              </div>
+              <div class="header-right">
+                <button @click="downloadSpreadsheet('xlsx')" class="btn-action xlsx">
+                  <Download :size="18" /> Excel Full (.xlsx)
+                </button>
+                <button @click="downloadSpreadsheet('csv')" class="btn-action csv">
+                   CSV
+                </button>
+              </div>
+            </div>
+
+            <div class="table-wrapper" :style="{ borderColor: previewTheme.borderColor }">
+              <table>
+                <thead>
+                  <tr :style="{ background: previewTheme.headerBg, color: previewTheme.headerText }">
+                    <th v-for="col in firstSheet.columns" :key="col.key">
+                      <div class="th-inner">
+                        {{ col.header }}
+                        <span class="type-badge">{{ col.type || col.format || 'text' }}</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, idx) in firstSheet.rows" :key="idx"
+                      :style="{ background: rowBackgroundAt(Number(idx)), color: rowTextColorAt(Number(idx)) }">
+                    <td v-for="col in firstSheet.columns" :key="col.key"
+                        :style="{ borderColor: previewTheme.borderColor, textAlign: col.alignment || 'left', color: rowTextColorAt(Number(idx)) }">
+                      <span v-if="typeof row[col.key] === 'object' && row[col.key]?.formula" class="formula-pill">
+                         {{ row[col.key].formula }}
+                      </span>
+                      <span v-else>{{ row[col.key] }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </transition>
+
+        <transition name="refine-slide">
+          <section v-if="askingMoreInfo" class="refinement-card glass-card">
+            <div class="refine-header">
+              <MessageSquare class="refine-icon" />
+              <div class="refine-title">
+                <h3>Refinamento Inteligente</h3>
+                <p>{{ question }}</p>
+              </div>
+            </div>
+            <div class="suggestions-list">
+              <button 
+                v-for="sug in suggestions" 
+                :key="sug" 
+                @click="useSuggestion(sug)"
+                class="suggestion-item"
+              >
+                <span>{{ sug }}</span>
+                <ChevronRight :size="14" />
+              </button>
+            </div>
+          </section>
+        </transition>
+      </template>
+
+      <template v-else>
+        <AdminDashboard />
+      </template>
     </main>
 
     <transition name="toast-fade">
@@ -507,6 +538,32 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
 .logo span { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.03em; }
 
 .nav-right { display: flex; align-items: center; gap: 24px; }
+
+.admin-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    border-radius: 12px;
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    background: rgba(99, 102, 241, 0.12);
+    color: #c7d2fe;
+    padding: 0 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.admin-toggle-btn:hover {
+    border-color: rgba(129, 140, 248, 0.7);
+    background: rgba(99, 102, 241, 0.22);
+}
+
+.admin-toggle-btn.active {
+    border-color: rgba(34, 197, 94, 0.55);
+    background: rgba(34, 197, 94, 0.15);
+    color: #86efac;
+}
 
 .credit-pill {
     display: flex; align-items: center; gap: 8px;
@@ -729,6 +786,13 @@ td { padding: 14px 16px; font-size: 0.95rem; border-bottom: 1px solid var(--glas
     gap: 10px;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .admin-toggle-btn {
+    order: 3;
+    width: 100%;
+    justify-content: center;
   }
 
   .credit-pill {

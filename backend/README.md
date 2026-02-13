@@ -22,6 +22,7 @@ npm run db:sync
 
 ## Variáveis obrigatórias
 
+- `DATABASE_URL` (PostgreSQL)
 - `GEMINI_API_KEY`
 - `JWT_SECRET` (mínimo de 32 caracteres)
 - `APP_URL`
@@ -33,3 +34,4 @@ npm run db:sync
 - `MP_WEBHOOK_SECRET`
 - `META_PIXEL_ID`
 - `META_ACCESS_TOKEN`
+- `ADMIN_EMAILS` (lista de e-mails admins separados por vírgula ou espaço)
