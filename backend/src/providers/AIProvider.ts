@@ -6,12 +6,21 @@ export class AIProvider {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
-    // Usando o modelo solicitado pelo usuário (mantendo o ajuste manual dele se possível ou corrigindo para versão estável)
     this.model = this.genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
+      systemInstruction: `Você é um Engenheiro de Dados especialista em Excel.
+Sua missão é gerar planilhas PREMIUM e COMPLETAS em JSON. 
+
+REGRAS:
+1. IDIOMA: Responda exatamente no idioma solicitado pelo usuário (padrão: Português).
+2. DADOS: Mínimo 20 linhas de dados REAIS e DENSOS. Evite placeholders.
+3. FÓRMULAS: Use fórmulas Excel padrão (SUM, IF, VLOOKUP, etc) para campos calculados.
+4. DESIGN: Gere um tema elegante com cores Hex (ex: headerBg, headerText, rowOddBg).
+5. FORMATO: Siga rigorosamente o schema JSON fornecido.`,
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.2
+        temperature: 0.1,
+        maxOutputTokens: 2500
       }
     });
   }
@@ -28,47 +37,32 @@ export class AIProvider {
   }
 
   async generateSpreadsheetAndNextSteps(userPrompt: string): Promise<any> {
-    const prompt = `
-      Pedido do usuário: "${userPrompt}"
-      
-      OBJETIVO: Gere uma planilha PREMIUM, COMPLETA e COM DESIGN REFINADO.
-      A planilha deve vir OBRIGATORIAMENTE preenchida com no mínimo 20 linhas de dados realistas. 
-      NÃO use placeholders como "Dado 1", "Valor A". Use nomes, datas e valores que façam sentido absoluto.
-      
-      REGRAS CRUCIAIS:
-      1. IDIOMA: Detecte o idioma do prompt ("${userPrompt}") e responda TODA a planilha (títulos, colunas, dados) nesse exato idioma.
-      2. DESIGN: Defina uma paleta de cores (hex) elegante. O cabeçalho deve ter contraste alto.
-      3. DADOS: Gere uma massa de dados densa. Se for uma planilha financeira, invente transações reais. 
-      4. FORMULAS: OBRIGATORIAMENTE use fórmulas do Excel para campos calculados (ex: totais, médias, descontos, ROIs). 
-         - Use a sintaxe padrão do Excel em INGLÊS (ex: =SUM(A1:A10), =VLOOKUP(...), =IF(...)).
-      5. FORMATOS: Use o campo "format" para definir se a coluna é "currency", "date", "percentage", ou "number".
-      
-      FORMA DE RESPOSTA (JSON):
-      {
-        "schema": {
-          "title": "...",
-          "description": "...",
-          "theme": { ... },
-          "sheets": [{
-            "name": "...",
-            "showTitle": true, // Adicionar um título visual estilizado no topo
-            "freezePanes": { "x": 0, "y": 2 }, // Ajustado para 2 devido ao título
-            "autoFilter": true, // Habilitar filtros automáticos
-            "columns": [
-              { "header": "...", "key": "k1", "width": 20, "format": "currency" }
-            ],
-            "rows": [
-              { 
-                "k1": 150.50, // Valor bruto para dados normais
-                "k2": { "formula": "SUM(A2:A21)" } // Fórmulas para campos de ação
-              }, ... (mínimo 20 linhas)
-            ]
-          }]
-        },
-        "followUp": "...",
-        "suggestions": [...]
-      }
-    `;
-    return await this.generateStructuredResponse(prompt);
+    const prompt = `Gere uma planilha para: "${userPrompt}". 
+Retorne um JSON com:
+{
+  "schema": {
+    "title": "Título",
+    "description": "Explicação",
+    "theme": { "headerBg": "#...", "headerText": "#...", "rowEvenBg": "#...", "rowOddBg": "#...", "borderColor": "#..." },
+    "sheets": [{
+      "name": "Sheet1",
+      "showTitle": true,
+      "autoFilter": true,
+      "columns": [{ "header": "...", "key": "col1", "width": 15, "format": "currency/date/percentage/number" }],
+      "rows": [{ "col1": 100, "col2": { "formula": "..." } }]
+    }]
+  },
+  "followUp": "Pergunta de refinamento",
+  "suggestions": ["Sugestão 1", "Sugestão 2"]
+}`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const text = result.response.text();
+      return JSON.parse(text);
+    } catch (error) {
+      console.error("AI Error:", error);
+      throw new Error("Erro na aceleração por IA. Verifique sua conexão.");
+    }
   }
 }
