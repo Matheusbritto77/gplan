@@ -4,9 +4,12 @@ export class SpreadsheetService {
     async createWorkbook(schema: any): Promise<ExcelJS.Workbook> {
         const workbook = new ExcelJS.Workbook();
         const theme = this.parseTheme(schema.theme);
+        const usedWorksheetNames = new Set<string>();
 
-        for (const sheetSchema of schema.sheets) {
-            const worksheet = workbook.addWorksheet(sheetSchema.name);
+        for (let sheetIndex = 0; sheetIndex < schema.sheets.length; sheetIndex += 1) {
+            const sheetSchema = schema.sheets[sheetIndex];
+            const worksheetName = this.getSafeWorksheetName(sheetSchema.name, sheetIndex, usedWorksheetNames);
+            const worksheet = workbook.addWorksheet(worksheetName);
             const cols = sheetSchema.columns;
             const headerRowNumber = sheetSchema.showTitle ? 2 : 1;
 
@@ -65,6 +68,35 @@ export class SpreadsheetService {
             }
         }
         return workbook;
+    }
+
+    private getSafeWorksheetName(rawName: unknown, sheetIndex: number, usedNames: Set<string>): string {
+        const cleaned = String(rawName || '')
+            .replace(/[\*\?:\\/\[\]]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const baseName = (cleaned || `Planilha ${sheetIndex + 1}`).slice(0, 31);
+
+        if (!usedNames.has(baseName)) {
+            usedNames.add(baseName);
+            return baseName;
+        }
+
+        let suffixIndex = 2;
+        while (suffixIndex <= 9999) {
+            const suffix = ` (${suffixIndex})`;
+            const candidate = `${baseName.slice(0, Math.max(1, 31 - suffix.length))}${suffix}`;
+            if (!usedNames.has(candidate)) {
+                usedNames.add(candidate);
+                return candidate;
+            }
+            suffixIndex += 1;
+        }
+
+        const fallback = `Planilha ${sheetIndex + 1}`.slice(0, 31);
+        usedNames.add(fallback);
+        return fallback;
     }
 
     private parseTheme(t: any) {

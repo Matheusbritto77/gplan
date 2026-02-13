@@ -226,8 +226,19 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
     link.href = url;
     link.download = `${currentSchema.value.title.replace(/\s+/g, '_')}.${format}`;
     link.click();
-  } catch (e) {
-    pushToast('Erro ao baixar arquivo.', 'error');
+  } catch (error: any) {
+    if (error?.response?.status === 401) {
+      user.value = null;
+      openAuth(
+        'login',
+        'Faça login para baixar',
+        'Sua sessão expirou. Entre novamente para baixar sua planilha.'
+      );
+      return;
+    }
+
+    const backendMessage = error?.response?.data?.error;
+    pushToast(backendMessage || 'Erro ao baixar arquivo.', 'error');
   }
 };
 
