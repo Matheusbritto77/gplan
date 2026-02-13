@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "main": "src/index.ts",
   "scripts": {
-    "db:sync": "npx prisma db push",
+    "db:sync": "node ./scripts/prisma-with-env.js db push",
+    "db:generate": "node ./scripts/prisma-with-env.js generate",
     "dev": "npm run db:sync && ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "npm run db:sync && ts-node src/index.ts",
-    "build": "npx prisma generate && npx tsc",
-    "postinstall": "npx prisma generate"
+    "build": "npm run db:generate && npx tsc",
+    "postinstall": "npm run db:generate"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
