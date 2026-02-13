@@ -37,6 +37,70 @@ const isPremium = computed(() => user.value?.plan === 'PREMIUM');
 const currentPlan = computed(() => isPremium.value ? 'PREMIUM' : 'FREE');
 const firstSheet = computed(() => currentSchema.value?.sheets?.[0] || null);
 
+type PreviewTheme = {
+  headerBg: string;
+  headerText: string;
+  rowEvenBg: string;
+  rowOddBg: string;
+  borderColor: string;
+};
+
+const defaultPreviewTheme: PreviewTheme = {
+  headerBg: '#4F46E5',
+  headerText: '#FFFFFF',
+  rowEvenBg: '#F8FAFC',
+  rowOddBg: '#FFFFFF',
+  borderColor: '#E2E8F0'
+};
+
+const previewTheme = computed<PreviewTheme>(() => {
+  const rawTheme = currentSchema.value?.theme || {};
+  return {
+    headerBg: normalizeHexColor(rawTheme.headerBg, defaultPreviewTheme.headerBg),
+    headerText: normalizeHexColor(rawTheme.headerText, defaultPreviewTheme.headerText),
+    rowEvenBg: normalizeHexColor(rawTheme.rowEvenBg, defaultPreviewTheme.rowEvenBg),
+    rowOddBg: normalizeHexColor(rawTheme.rowOddBg, defaultPreviewTheme.rowOddBg),
+    borderColor: normalizeHexColor(rawTheme.borderColor, defaultPreviewTheme.borderColor)
+  };
+});
+
+const rowBackgroundAt = (idx: number): string => {
+  return idx % 2 === 0 ? previewTheme.value.rowEvenBg : previewTheme.value.rowOddBg;
+};
+
+const rowTextColorAt = (idx: number): string => {
+  return getReadableTextColor(rowBackgroundAt(idx));
+};
+
+function normalizeHexColor(input: unknown, fallback: string): string {
+  if (typeof input !== 'string') return fallback;
+
+  const normalized = input.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(normalized)) return normalized;
+  if (/^[0-9a-fA-F]{6}$/.test(normalized)) return `#${normalized}`;
+
+  return fallback;
+}
+
+function getReadableTextColor(backgroundHex: string): string {
+  const rgb = hexToRgb(backgroundHex);
+  if (!rgb) return '#0F172A';
+
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  return luminance > 0.65 ? '#0F172A' : '#F8FAFC';
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const clean = hex.replace('#', '');
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return null;
+
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16)
+  };
+}
+
 const pushToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
   toast.value = { message, type };
   if (toastTimer) clearTimeout(toastTimer);
@@ -337,10 +401,10 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
             </div>
           </div>
 
-          <div class="table-wrapper" :style="{ borderColor: currentSchema.theme?.borderColor }">
+          <div class="table-wrapper" :style="{ borderColor: previewTheme.borderColor }">
             <table>
               <thead>
-                <tr :style="{ background: currentSchema.theme?.headerBg, color: currentSchema.theme?.headerText }">
+                <tr :style="{ background: previewTheme.headerBg, color: previewTheme.headerText }">
                   <th v-for="col in firstSheet.columns" :key="col.key">
                     <div class="th-inner">
                       {{ col.header }}
@@ -351,9 +415,9 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
               </thead>
               <tbody>
                 <tr v-for="(row, idx) in firstSheet.rows" :key="idx"
-                    :style="{ background: Number(idx) % 2 === 0 ? currentSchema.theme?.rowEvenBg : currentSchema.theme?.rowOddBg }">
+                    :style="{ background: rowBackgroundAt(Number(idx)), color: rowTextColorAt(Number(idx)) }">
                   <td v-for="col in firstSheet.columns" :key="col.key"
-                      :style="{ borderColor: currentSchema.theme?.borderColor, textAlign: col.alignment || 'left' }">
+                      :style="{ borderColor: previewTheme.borderColor, textAlign: col.alignment || 'left', color: rowTextColorAt(Number(idx)) }">
                     <span v-if="typeof row[col.key] === 'object' && row[col.key]?.formula" class="formula-pill">
                        {{ row[col.key].formula }}
                     </span>
@@ -488,6 +552,9 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
 }
 
 .auth-group { display: flex; gap: 12px; }
+.auth-group .btn-primary.small {
+  min-height: 40px;
+}
 .btn-ghost { background: none; border: none; color: var(--text-muted); font-weight: 700; cursor: pointer; }
 .btn-ghost:hover { color: white; }
 
@@ -576,7 +643,7 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
 .btn-action.csv { background: rgba(255,255,255,0.05); color: white; }
 
 .table-wrapper { border-radius: 16px; overflow: hidden; border: 1px solid; margin-top: 10px; }
-table { width: 100%; border-collapse: collapse; }
+table { width: 100%; border-collapse: collapse; min-width: 680px; }
 th { padding: 16px; text-align: left; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; }
 .th-inner { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .type-badge { font-size: 0.6rem; opacity: 0.7; padding: 2px 6px; border: 1px solid currentColor; border-radius: 4px; }
@@ -638,15 +705,217 @@ td { padding: 14px 16px; font-size: 0.95rem; border-bottom: 1px solid var(--glas
 }
 
 @media (max-width: 768px) {
-  .top-nav { margin: 8px; padding: 12px 16px; }
-  .nav-right .email { display: none; }
-  .hero-section h1 { font-size: 2.5rem; }
-  .main-content { padding-top: 20px; }
-  .generator-container { padding: 20px; }
-  .floating-promo { flex-direction: column; gap: 20px; text-align: center; }
-  .preview-header { flex-direction: column; gap: 24px; }
-  .header-right { width: 100%; }
-  .btn-action { flex: 1; }
-  .toast { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+  .top-nav {
+    margin: 10px 10px 0;
+    padding: 12px;
+    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    top: 8px;
+  }
+
+  .logo {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .logo span {
+    font-size: 1.2rem;
+  }
+
+  .nav-right {
+    width: 100%;
+    gap: 10px;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .credit-pill {
+    min-height: 42px;
+    padding: 6px 8px 6px 12px;
+  }
+
+  .user-profile {
+    flex: 1;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .user-info {
+    max-width: 130px;
+    overflow: hidden;
+  }
+
+  .nav-right .email {
+    display: none;
+  }
+
+  .auth-group {
+    flex: 1;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .btn-ghost,
+  .auth-group .btn-primary.small {
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+
+  .hero-section h1 {
+    font-size: 2.25rem;
+    line-height: 1.06;
+  }
+
+  .hero-desc {
+    font-size: 1rem;
+    padding: 0 4px;
+  }
+
+  .main-content {
+    width: 94%;
+    padding-top: 14px;
+    gap: 26px;
+  }
+
+  .generator-container {
+    padding: 16px;
+  }
+
+  .main-input {
+    min-height: 150px;
+    font-size: 1rem;
+    padding: 16px;
+  }
+
+  .generator-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .usage-hint {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .btn-primary.large {
+    width: 100%;
+    min-height: 52px;
+    padding: 12px 18px;
+    font-size: 1rem;
+  }
+
+  .floating-promo {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .promo-content {
+    gap: 12px;
+  }
+
+  .preview-section {
+    padding: 16px;
+  }
+
+  .preview-header {
+    flex-direction: column;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+
+  .preview-header h2 {
+    font-size: 1.5rem;
+    line-height: 1.1;
+  }
+
+  .header-right {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-action {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  th,
+  td {
+    padding: 12px 10px;
+  }
+
+  .refinement-card {
+    padding: 18px;
+  }
+
+  .refine-header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .suggestions-list {
+    grid-template-columns: 1fr;
+  }
+
+  .suggestion-item {
+    min-height: 46px;
+  }
+
+  .toast {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-width: none;
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero-section h1 {
+    font-size: 2rem;
+  }
+
+  .logo-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .credit-label {
+    display: none;
+  }
+
+  .auth-group {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .auth-group .btn-ghost,
+  .auth-group .btn-primary.small {
+    flex: 1;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .promo-text h4 {
+    font-size: 1rem;
+  }
+
+  .promo-text p {
+    font-size: 0.88rem;
+  }
 }
 </style>

@@ -155,6 +155,7 @@ const handleSubmit = async () => {
     padding: 48px;
     background: rgba(15, 23, 42, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
 }
 
 .close-btn {
@@ -263,4 +264,60 @@ const handleSubmit = async () => {
 
 .animate-zoom { animation: zoom 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes zoom { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+@media (max-width: 768px) {
+    .modal-overlay {
+        align-items: flex-end;
+        padding: 10px;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: none;
+        max-height: 88vh;
+        overflow-y: auto;
+        border-radius: 20px;
+        padding: 24px 18px 20px;
+    }
+
+    .close-btn {
+        top: 12px;
+        right: 12px;
+        width: 36px;
+        height: 36px;
+    }
+
+    .auth-header {
+        margin-bottom: 22px;
+        padding-right: 28px;
+    }
+
+    .auth-header h2 {
+        font-size: 1.5rem;
+        line-height: 1.15;
+    }
+
+    .auth-header p {
+        font-size: 0.95rem;
+    }
+
+    .auth-form {
+        gap: 14px;
+    }
+
+    .input-group input {
+        min-height: 46px;
+        padding: 12px 14px 12px 44px;
+    }
+
+    .submit-btn {
+        height: 48px;
+        font-size: 0.98rem;
+    }
+
+    .auth-footer {
+        margin-top: 18px;
+        padding-top: 16px;
+    }
+}
 </style>
