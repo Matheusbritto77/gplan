@@ -5,7 +5,7 @@ import AuthModal from './components/AuthModal.vue';
 import { 
   Sparkles, Download, Loader2, 
   MessageSquare, ChevronRight,
-  CheckCircle2, Info, User as UserIcon,
+  CheckCircle2, Info,
   CreditCard, LogOut, Wallet
 } from 'lucide-vue-next';
 import { AnalyticsService } from './services/AnalyticsService';
