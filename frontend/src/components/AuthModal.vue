@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { AuthService } from '../services/AuthService';
 import { X, Mail, Lock, LogIn, Loader2, AlertCircle, CheckCircle2 } from 'lucide-vue-next';
 
@@ -16,13 +16,33 @@ const password = ref('');
 const loading = ref(false);
 const error = ref('');
 
+watch(
+    () => props.initialMode,
+    (newMode) => {
+        if (newMode) {
+            mode.value = newMode;
+        }
+    }
+);
+
+watch(
+    () => props.isOpen,
+    (isOpen) => {
+        if (isOpen) {
+            mode.value = props.initialMode || 'register';
+            password.value = '';
+            error.value = '';
+        }
+    }
+);
+
 const isEmailValid = computed(() => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email.value);
 });
 
 const isPasswordValid = computed(() => {
-    return password.value.length >= 6;
+    return password.value.length >= 8;
 });
 
 const isFormValid = computed(() => {
@@ -59,7 +79,7 @@ const handleSubmit = async () => {
 <template>
     <div v-if="isOpen" class="modal-overlay" @click.self="emit('close')">
         <div class="auth-card glass-card animate-zoom">
-            <button class="close-btn" @click="emit('close')"><X :size="20" /></button>
+            <button class="close-btn" @click="emit('close')" aria-label="Fechar modal de autenticação"><X :size="20" /></button>
             
             <div class="auth-header">
                 <div class="brand-badge">
@@ -84,9 +104,15 @@ const handleSubmit = async () => {
                     <label>Senha de Acesso</label>
                     <div class="input-group" :class="{ 'error': password && !isPasswordValid && mode === 'register', 'success': isPasswordValid && mode === 'register' }">
                         <Lock :size="18" class="input-icon" />
-                        <input v-model="password" type="password" placeholder="••••••••" required autocomplete="current-password" />
+                        <input
+                            v-model="password"
+                            type="password"
+                            placeholder="••••••••"
+                            required
+                            :autocomplete="mode === 'register' ? 'new-password' : 'current-password'"
+                        />
                     </div>
-                    <span v-if="mode === 'register'" class="hint">Mínimo de 6 caracteres</span>
+                    <span v-if="mode === 'register'" class="hint">Mínimo de 8 caracteres</span>
                 </div>
 
                 <div v-if="error" class="error-banner">

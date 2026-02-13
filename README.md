@@ -1,15 +1,20 @@
 # Spreadsheet-as-a-Service AI 🚀
 
-Gerador de planilhas inteligente usando **Bun + Elysia + Vue 3 + Gemini 2.0 Flash**.
+Gerador de planilhas inteligente usando **Node.js + Express + Vue 3 + Gemini**.
 
 ## 🛠️ Como rodar o projeto
 
 ### 1. Configurar o Backend
 1. Entre na pasta `backend`.
 2. Renomeie ou edite o arquivo `.env`.
-3. Adicione sua chave de API do Gemini:
+3. Configure as variáveis no `.env` (exemplo em `.env.example`):
    ```env
    GEMINI_API_KEY=sua_chave_aqui
+   JWT_SECRET=segredo_com_no_minimo_32_caracteres
+   APP_URL=https://seu-dominio.com
+   CORS_ORIGINS=https://seu-dominio.com,http://localhost:5173
+   MP_ACCESS_TOKEN=seu_token_mercadopago
+   MP_WEBHOOK_SECRET=seu_secret_webhook_mercadopago
    ```
 4. Instale as dependências e rode:
    ```bash

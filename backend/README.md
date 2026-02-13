@@ -1,15 +1,29 @@
-# backend
+# Backend
 
-To install dependencies:
-
-```bash
-bun install
-```
-
-To run:
+## Rodar localmente
 
 ```bash
-bun run index.ts
+npm install
+npm run dev
 ```
 
-This project was created using `bun init` in bun v1.3.8. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Build de produção
+
+```bash
+npm run build
+npm start
+```
+
+## Variáveis obrigatórias
+
+- `GEMINI_API_KEY`
+- `JWT_SECRET` (mínimo de 32 caracteres)
+- `APP_URL`
+
+## Variáveis opcionais (recomendadas)
+
+- `CORS_ORIGINS`
+- `MP_ACCESS_TOKEN`
+- `MP_WEBHOOK_SECRET`
+- `META_PIXEL_ID`
+- `META_ACCESS_TOKEN`

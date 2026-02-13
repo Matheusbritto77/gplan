@@ -19,6 +19,8 @@ const question = ref('');
 const suggestions = ref<string[]>([]);
 const currentSchema = ref<any>(null);
 const history = ref<any[]>([]);
+const toast = ref<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Estados de Autenticação e Créditos
 const user = ref<any>(null);
@@ -28,33 +30,47 @@ const mpLoading = ref(false);
 
 const isGuest = computed(() => user.value?.isGuest);
 const credits = computed(() => user.value?.credits || 0);
+const firstSheet = computed(() => currentSchema.value?.sheets?.[0] || null);
+
+const pushToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+  toast.value = { message, type };
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.value = null;
+  }, 3500);
+};
 
 // Inicialização
 onMounted(async () => {
   AnalyticsService.pageView();
   
-  const savedToken = localStorage.getItem('token');
   try {
-    if (savedToken) {
-      user.value = await AuthService.getMe();
-    } else {
-      const guest = await AuthService.getGuestToken();
-      user.value = guest.user;
-    }
+    user.value = await AuthService.getMe();
   } catch (e) {
-    AuthService.logout();
-    const guest = await AuthService.getGuestToken();
+    const guest = await AuthService.getGuestSession();
     user.value = guest.user;
   }
 
   const saved = localStorage.getItem('sheet_history');
-  if (saved) history.value = JSON.parse(saved);
+  if (saved) {
+    try {
+      history.value = JSON.parse(saved);
+    } catch {
+      history.value = [];
+    }
+  }
 
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('payment') === 'success') {
-    alert('Pagamento aprovado! Seus 600 créditos serão adicionados em instantes.');
+    pushToast('Pagamento aprovado. Seus 600 créditos serão adicionados em instantes.', 'success');
     window.history.replaceState({}, document.title, window.location.pathname);
     user.value = await AuthService.getMe();
+  } else if (urlParams.get('payment') === 'failure') {
+    pushToast('Pagamento não concluído. Tente novamente.', 'error');
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } else if (urlParams.get('payment') === 'pending') {
+    pushToast('Pagamento pendente. Você receberá os créditos após aprovação.', 'info');
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 });
 
@@ -62,9 +78,13 @@ const handleAuthSuccess = async () => {
   user.value = await AuthService.getMe();
 };
 
-const logout = () => {
-  AuthService.logout();
-  window.location.reload();
+const logout = async () => {
+  await AuthService.logout();
+  const guest = await AuthService.getGuestSession();
+  user.value = guest.user;
+  showPreview.value = false;
+  askingMoreInfo.value = false;
+  pushToast('Sessão encerrada com sucesso.', 'info');
 };
 
 const saveToHistory = (schema: any) => {
@@ -102,7 +122,9 @@ const processPrompt = async (forcedPrompt?: string) => {
     askingMoreInfo.value = true;
     saveToHistory(data.schema);
     
-    user.value.credits -= 1;
+    if (user.value?.credits !== undefined) {
+      user.value.credits -= 1;
+    }
   } catch (error: any) {
     console.error('Error:', error);
     if (error.response?.status === 402) {
@@ -110,10 +132,10 @@ const processPrompt = async (forcedPrompt?: string) => {
         authMode.value = 'register';
         showAuth.value = true;
       } else {
-        alert('Créditos insuficientes! Assine o plano premium para obter mais.');
+        pushToast('Créditos insuficientes. Assine o plano premium para continuar.', 'error');
       }
     } else {
-      alert(error.response?.data?.error || 'Erro ao processar sua solicitação');
+      pushToast(error.response?.data?.error || 'Erro ao processar sua solicitação', 'error');
     }
   } finally {
     loading.value = false;
@@ -132,7 +154,7 @@ const handleSubscribe = async () => {
     const pref = await AuthService.createCheckoutPreference();
     window.location.href = pref.init_point;
   } catch (e) {
-    alert('Erro ao iniciar checkout');
+    pushToast('Erro ao iniciar checkout.', 'error');
   } finally {
     mpLoading.value = false;
   }
@@ -157,7 +179,7 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
     link.download = `${currentSchema.value.title.replace(/\s+/g, '_')}.${format}`;
     link.click();
   } catch (e) {
-    alert('Erro ao baixar arquivo');
+    pushToast('Erro ao baixar arquivo.', 'error');
   }
 };
 </script>
@@ -191,7 +213,7 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
               <span>PREMIUM</span>
             </div>
           </div>
-          <button @click="logout" class="icon-btn logout-btn" title="Sair"><LogOut :size="18" /></button>
+          <button @click="logout" class="icon-btn logout-btn" title="Sair" aria-label="Sair da conta"><LogOut :size="18" /></button>
         </div>
         <div v-else class="auth-group">
           <button @click="authMode = 'login'; showAuth = true" class="btn-ghost">Logar</button>
@@ -247,7 +269,7 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
       </div>
 
       <transition name="preview-fade">
-        <section v-if="showPreview" class="preview-section glass-card">
+        <section v-if="showPreview && firstSheet" class="preview-section glass-card">
           <div class="preview-header">
             <div class="header-left">
               <div class="status-token">Pronta para Download</div>
@@ -268,7 +290,7 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
             <table>
               <thead>
                 <tr :style="{ background: currentSchema.theme?.headerBg, color: currentSchema.theme?.headerText }">
-                  <th v-for="col in currentSchema.sheets[0].columns" :key="col.key">
+                  <th v-for="col in firstSheet.columns" :key="col.key">
                     <div class="th-inner">
                       {{ col.header }}
                       <span class="type-badge">{{ col.type || col.format || 'text' }}</span>
@@ -277,9 +299,9 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(row, idx) in currentSchema.sheets[0].rows" :key="idx"
+                <tr v-for="(row, idx) in firstSheet.rows" :key="idx"
                     :style="{ background: Number(idx) % 2 === 0 ? currentSchema.theme?.rowEvenBg : currentSchema.theme?.rowOddBg }">
-                  <td v-for="col in currentSchema.sheets[0].columns" :key="col.key"
+                  <td v-for="col in firstSheet.columns" :key="col.key"
                       :style="{ borderColor: currentSchema.theme?.borderColor, textAlign: col.alignment || 'left' }">
                     <span v-if="typeof row[col.key] === 'object' && row[col.key]?.formula" class="formula-pill">
                        {{ row[col.key].formula }}
@@ -316,6 +338,12 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
         </section>
       </transition>
     </main>
+
+    <transition name="toast-fade">
+      <div v-if="toast" class="toast" :class="toast.type" role="status" aria-live="polite">
+        {{ toast.message }}
+      </div>
+    </transition>
 
     <AuthModal 
       :is-open="showAuth" 
@@ -509,6 +537,37 @@ td { padding: 14px 16px; font-size: 0.95rem; border-bottom: 1px solid var(--glas
 .preview-fade-enter-active, .preview-fade-leave-active { transition: opacity 0.5s, transform 0.5s; }
 .preview-fade-enter-from { opacity: 0; transform: translateY(20px); }
 
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  max-width: 420px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: rgba(15, 23, 42, 0.95);
+  color: var(--text-main);
+  font-weight: 600;
+  z-index: 1200;
+  box-shadow: 0 15px 30px rgba(2, 6, 23, 0.45);
+}
+.toast.success {
+  border-color: rgba(16, 185, 129, 0.5);
+}
+.toast.error {
+  border-color: rgba(239, 68, 68, 0.5);
+}
+.toast.info {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+.toast-fade-enter-active, .toast-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast-fade-enter-from, .toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
 @media (max-width: 768px) {
   .top-nav { margin: 8px; padding: 12px 16px; }
   .nav-right .email { display: none; }
@@ -519,5 +578,6 @@ td { padding: 14px 16px; font-size: 0.95rem; border-bottom: 1px solid var(--glas
   .preview-header { flex-direction: column; gap: 24px; }
   .header-right { width: 100%; }
   .btn-action { flex: 1; }
+  .toast { left: 12px; right: 12px; bottom: 12px; max-width: none; }
 }
 </style>

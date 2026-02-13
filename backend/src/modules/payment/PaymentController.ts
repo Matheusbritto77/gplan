@@ -11,6 +11,10 @@ export class PaymentController {
 
     async createPreference(req: AuthRequest, res: Response) {
         try {
+            if (!req.user?.sub) {
+                return res.status(401).json({ error: 'Token inválido' });
+            }
+
             const userId = req.user.sub;
             const result = await this.paymentService.createSubscriptionPreference(userId);
             res.json(result);
@@ -21,11 +25,15 @@ export class PaymentController {
 
     async webhook(req: Request, res: Response) {
         try {
+            if (!this.paymentService.isWebhookSignatureValid(req.headers, req.body)) {
+                return res.status(401).json({ error: 'Assinatura de webhook inválida' });
+            }
+
             const result = await this.paymentService.handleWebhook(req.body);
             res.json(result);
         } catch (error: any) {
             console.error('Webhook error:', error);
-            res.status(200).json({ ok: false });
+            res.status(500).json({ ok: false });
         }
     }
 }

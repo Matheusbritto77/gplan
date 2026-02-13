@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import { AuthService } from './AuthService';
+import { AuthRequest } from '../../middlewares/AuthMiddleware';
+
+const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class AuthController {
     private authService: AuthService;
@@ -11,10 +14,23 @@ export class AuthController {
     async register(req: Request, res: Response) {
         try {
             const { email, password, guestId } = req.body;
+            const authReq = req as AuthRequest;
+
+            if (guestId) {
+                if (!authReq.user || authReq.user.sub !== guestId || !authReq.user.isGuest) {
+                    return res.status(403).json({ error: 'Conversão de conta convidada não autorizada' });
+                }
+            }
+
             const result = await this.authService.register(email, password, guestId);
-            res.json(result);
+            this.setAuthCookie(res, result.token);
+            res.json({ user: result.user });
         } catch (error: any) {
-            res.status(400).json({ error: error.message });
+            if (error?.code === "P2002") {
+                return res.status(409).json({ error: "Este e-mail já está em uso." });
+            }
+
+            res.status(400).json({ error: error.message || "Falha no cadastro." });
         }
     }
 
@@ -22,18 +38,39 @@ export class AuthController {
         try {
             const { email, password } = req.body;
             const result = await this.authService.login(email, password);
-            res.json(result);
+            this.setAuthCookie(res, result.token);
+            res.json({ user: result.user });
         } catch (error: any) {
-            res.status(400).json({ error: error.message });
+            res.status(401).json({ error: "Credenciais inválidas" });
         }
     }
 
     async guest(req: Request, res: Response) {
         try {
             const result = await this.authService.createGuest();
-            res.json(result);
+            this.setAuthCookie(res, result.token);
+            res.json({ user: result.user });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
         }
+    }
+
+    async logout(_req: Request, res: Response) {
+        res.clearCookie('auth_token', this.getCookieOptions());
+        res.json({ status: 'ok' });
+    }
+
+    private setAuthCookie(res: Response, token: string) {
+        res.cookie('auth_token', token, this.getCookieOptions());
+    }
+
+    private getCookieOptions() {
+        return {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict' as const,
+            maxAge: SESSION_MAX_AGE_MS,
+            path: '/'
+        };
     }
 }

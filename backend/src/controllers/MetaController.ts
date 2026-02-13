@@ -12,7 +12,7 @@ export class MetaController {
         try {
             const { eventName, eventSourceUrl, eventID, customData, userData } = req.body;
 
-            const clientIpAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+            const clientIpAddress = req.ip || req.socket.remoteAddress;
             const clientUserAgent = req.headers['user-agent'];
 
             const event: MetaEventData = {
