@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "start": "ts-node src/index.ts",
+    "db:sync": "npx prisma db push",
+    "dev": "npm run db:sync && ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "npm run db:sync && ts-node src/index.ts",
     "build": "npx prisma generate && npx tsc",
     "postinstall": "npx prisma generate"
   },

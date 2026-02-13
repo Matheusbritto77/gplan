@@ -14,6 +14,12 @@ npm run build
 npm start
 ```
 
+## Sincronizar schema no banco
+
+```bash
+npm run db:sync
+```
+
 ## Variáveis obrigatórias
 
 - `GEMINI_API_KEY`
