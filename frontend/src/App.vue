@@ -23,6 +23,7 @@ const toast = ref<{ type: 'success' | 'error' | 'info'; message: string } | null
 const authModalTitle = ref('');
 const authModalSubtitle = ref('');
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
+const CREDITS_PER_GENERATION = 20;
 
 // Estados de Autenticação e Créditos
 const user = ref<any>(null);
@@ -216,7 +217,7 @@ const processPrompt = async (forcedPrompt?: string) => {
     saveToHistory(data.schema);
     
     if (user.value?.credits !== undefined) {
-      user.value.credits -= 1;
+      user.value.credits = Math.max(0, user.value.credits - CREDITS_PER_GENERATION);
     }
   } catch (error: any) {
     console.error('Error:', error);
@@ -296,7 +297,7 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
       </div>
 
       <div class="nav-right">
-        <div class="credit-pill" :class="{ 'warning': credits < 5 }" @click="handleSubscribe">
+        <div class="credit-pill" :class="{ 'warning': credits < CREDITS_PER_GENERATION }" @click="handleSubscribe">
           <Wallet :size="16" />
           <span class="credit-count">{{ credits }}</span>
           <span class="credit-label">créditos</span>
@@ -369,7 +370,7 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
         </div>
       </section>
 
-      <div v-if="isAuthenticated && !isPremium && credits < 10 && !loading" class="floating-promo animate-slide-in">
+      <div v-if="isAuthenticated && !isPremium && credits < CREDITS_PER_GENERATION && !loading" class="floating-promo animate-slide-in">
         <div class="promo-content">
            <CreditCard class="promo-icon" />
            <div class="promo-text">

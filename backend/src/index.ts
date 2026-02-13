@@ -75,6 +75,7 @@ const metaController = new MetaController();
 const authController = new AuthController();
 const paymentController = new PaymentController();
 const creditService = new CreditService();
+const CREDITS_PER_GENERATION = 20;
 const authLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 30, keyPrefix: "auth" });
 const processLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 20, keyPrefix: "process" });
 const downloadLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 40, keyPrefix: "download" });
@@ -174,7 +175,7 @@ app.post("/api/process", authMiddleware as any, processLimiter as any, async (re
         }
 
         const { prompt } = parsed.data;
-        await creditService.consumeCredits(authReq.user.sub, 1);
+        await creditService.consumeCredits(authReq.user.sub, CREDITS_PER_GENERATION);
 
         const result = await controller.processRequest(prompt);
         res.json(result);
