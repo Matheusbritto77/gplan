@@ -29,10 +29,28 @@ app.get("/apihealth", (req, res) => {
     res.send("API is running");
 });
 
+import { body, validationResult } from "express-validator";
+
 // Auth Routes
+const validate = (req: any, res: any, next: any) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg });
+    next();
+};
+
 app.post("/api/auth/guest", (req, res) => authController.guest(req, res));
-app.post("/api/auth/register", (req, res) => authController.register(req, res));
-app.post("/api/auth/login", (req, res) => authController.login(req, res));
+
+app.post("/api/auth/register", [
+    body("email").isEmail().withMessage("E-mail inválido"),
+    body("password").isLength({ min: 6 }).withMessage("A senha deve ter pelo menos 6 caracteres"),
+    validate
+], (req: any, res: any) => authController.register(req, res));
+
+app.post("/api/auth/login", [
+    body("email").isEmail().withMessage("E-mail inválido"),
+    body("password").notEmpty().withMessage("Senha é obrigatória"),
+    validate
+], (req: any, res: any) => authController.login(req, res));
 
 // Payment Routes
 app.post("/api/checkout/preference", authMiddleware as any, (req, res) => paymentController.createPreference(req as AuthRequest, res));
