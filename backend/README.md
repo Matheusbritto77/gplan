@@ -14,6 +14,13 @@ npm run build
 npm start
 ```
 
+`npm start` não executa sincronização automática do schema.
+Para sincronizar manualmente antes de subir o app, use:
+
+```bash
+npm run db:sync
+```
+
 ## Sincronizar schema no banco
 
 ```bash
