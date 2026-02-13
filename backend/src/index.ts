@@ -203,7 +203,15 @@ app.post("/api/download", authMiddleware as any, downloadLimiter as any, async (
     try {
         const parsed = downloadRequestSchema.safeParse(req.body);
         if (!parsed.success) {
-            return res.status(400).json({ error: "Payload de download inválido" });
+            const firstIssue = parsed.error.issues[0];
+            if (!firstIssue) {
+                return res.status(400).json({ error: "Payload de download inválido" });
+            }
+
+            const issuePath = firstIssue.path.join(".") || "payload";
+            return res.status(400).json({
+                error: `Payload de download inválido em "${issuePath}": ${firstIssue.message}`
+            });
         }
 
         const { schema, format } = parsed.data;

@@ -237,7 +237,17 @@ const downloadSpreadsheet = async (format: 'xlsx' | 'csv') => {
       return;
     }
 
-    const backendMessage = error?.response?.data?.error;
+    let backendMessage = error?.response?.data?.error;
+    if (!backendMessage && typeof Blob !== 'undefined' && error?.response?.data instanceof Blob) {
+      try {
+        const raw = await error.response.data.text();
+        const parsed = JSON.parse(raw);
+        backendMessage = parsed?.error;
+      } catch (_err) {
+        backendMessage = undefined;
+      }
+    }
+
     pushToast(backendMessage || 'Erro ao baixar arquivo.', 'error');
   }
 };

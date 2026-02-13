@@ -18,7 +18,7 @@ export class SpreadsheetService {
                 header: col.header,
                 key: col.key,
                 width: col.width || 20,
-                style: { alignment: { vertical: 'middle', horizontal: col.alignment || 'left' } }
+                style: { alignment: { vertical: 'middle', horizontal: this.getHorizontalAlignment(col.alignment) } }
             }));
 
             // Título opcional
@@ -37,7 +37,7 @@ export class SpreadsheetService {
             const rowsToAdd = sheetSchema.rows.map((r: any) => {
                 const rowObj: any = {};
                 Object.keys(r).forEach(k => {
-                    rowObj[k] = r[k]?.formula ? { formula: r[k].formula } : r[k];
+                    rowObj[k] = this.normalizeCellValue(r[k]);
                 });
                 return rowObj;
             });
@@ -55,7 +55,8 @@ export class SpreadsheetService {
                 const bgColor = rowNum % 2 === 0 ? theme.rowEvenBg : theme.rowOddBg;
                 row.eachCell((cell, colNum) => {
                     this.applyDataStyle(cell, bgColor, theme.borderColor);
-                    this.applyFormatting(cell, cols[colNum - 1]?.format);
+                    const colFormat = cols[colNum - 1]?.format || cols[colNum - 1]?.type;
+                    this.applyFormatting(cell, colFormat);
                 });
             });
 
@@ -130,14 +131,39 @@ export class SpreadsheetService {
         };
     }
 
-    private applyFormatting(cell: ExcelJS.Cell, format: string) {
+    private applyFormatting(cell: ExcelJS.Cell, format: unknown) {
         const formats: any = {
             currency: '"R$ "#,##0.00',
             date: 'dd/mm/yyyy',
             percentage: '0.00%',
             number: '#,##0.00'
         };
-        if (formats[format]) cell.numFmt = formats[format];
+        const normalized = typeof format === 'string' ? format.toLowerCase().trim() : '';
+        if (formats[normalized]) cell.numFmt = formats[normalized];
+    }
+
+    private getHorizontalAlignment(rawAlignment: unknown): 'left' | 'center' | 'right' {
+        if (rawAlignment === 'center' || rawAlignment === 'right') {
+            return rawAlignment;
+        }
+        return 'left';
+    }
+
+    private normalizeCellValue(value: unknown): unknown {
+        if (value && typeof value === 'object') {
+            const maybeFormula = (value as { formula?: unknown }).formula;
+            if (typeof maybeFormula === 'string' && maybeFormula.trim().length > 0) {
+                return { formula: maybeFormula.trim() };
+            }
+
+            try {
+                return JSON.stringify(value);
+            } catch (_error) {
+                return String(value);
+            }
+        }
+
+        return value;
     }
 
     async exportToBuffer(workbook: ExcelJS.Workbook, format: 'xlsx' | 'csv'): Promise<Buffer> {
