@@ -106,6 +106,38 @@ const validate = (req: any, res: any, next: any) => {
     next();
 };
 
+function buildContentDisposition(filename: string): string {
+    const safeFilename = String(filename || "planilha.xlsx")
+        .replace(/[\r\n]/g, " ")
+        .trim() || "planilha.xlsx";
+
+    const asciiFallback = toAsciiFilenameFallback(safeFilename);
+    const utf8Encoded = encodeURIComponent(safeFilename)
+        .replace(/['()]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
+        .replace(/\*/g, "%2A");
+
+    return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${utf8Encoded}`;
+}
+
+function toAsciiFilenameFallback(filename: string): string {
+    const extensionMatch = filename.match(/\.(xlsx|csv)$/i);
+    const extension = extensionMatch ? `.${extensionMatch[1].toLowerCase()}` : "";
+    const baseName = extension ? filename.slice(0, -extension.length) : filename;
+
+    const asciiBase = baseName
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Za-z0-9._ -]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/^\.+/, "");
+
+    const fallbackBase = asciiBase.length > 0 ? asciiBase : "planilha";
+    const fallback = `${fallbackBase}${extension}`;
+
+    return fallback.slice(0, 120);
+}
+
 app.post(
     "/api/auth/register",
     authLimiter as any,
@@ -218,7 +250,7 @@ app.post("/api/download", authMiddleware as any, downloadLimiter as any, async (
         const { buffer, filename, mimeType } = await controller.generateFile(schema, format);
 
         res.setHeader("Content-Type", mimeType);
-        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.setHeader("Content-Disposition", buildContentDisposition(filename));
         res.send(buffer);
     } catch (error: unknown) {
         console.error("Error generating file:", error);
