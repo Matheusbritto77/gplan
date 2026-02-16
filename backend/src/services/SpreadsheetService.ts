@@ -1,7 +1,8 @@
 import ExcelJS from 'exceljs';
+import { SpreadsheetSchema } from '../validators/spreadsheetSchema';
 
 export class SpreadsheetService {
-    async createWorkbook(schema: any): Promise<ExcelJS.Workbook> {
+    async createWorkbook(schema: SpreadsheetSchema): Promise<ExcelJS.Workbook> {
         const workbook = new ExcelJS.Workbook();
         const theme = this.parseTheme(schema.theme);
         const usedWorksheetNames = new Set<string>();
@@ -34,8 +35,8 @@ export class SpreadsheetService {
             }
 
             // Batched row addition
-            const rowsToAdd = sheetSchema.rows.map((r: any) => {
-                const rowObj: any = {};
+            const rowsToAdd = sheetSchema.rows.map((r) => {
+                const rowObj: Record<string, unknown> = {};
                 Object.keys(r).forEach(k => {
                     rowObj[k] = this.normalizeCellValue(r[k]);
                 });
@@ -132,11 +133,14 @@ export class SpreadsheetService {
     }
 
     private applyFormatting(cell: ExcelJS.Cell, format: unknown) {
-        const formats: any = {
+        const formats: Record<string, string> = {
             currency: '"R$ "#,##0.00',
             date: 'dd/mm/yyyy',
+            datetime: 'dd/mm/yyyy hh:mm',
             percentage: '0.00%',
-            number: '#,##0.00'
+            number: '#,##0.00',
+            integer: '#,##0',
+            accounting: '_-R$ * #,##0.00_-;_-R$ * -#,##0.00_-;_-R$ * "-"??_-;_-@_-'
         };
         const normalized = typeof format === 'string' ? format.toLowerCase().trim() : '';
         if (formats[normalized]) cell.numFmt = formats[normalized];
@@ -153,7 +157,8 @@ export class SpreadsheetService {
         if (value && typeof value === 'object') {
             const maybeFormula = (value as { formula?: unknown }).formula;
             if (typeof maybeFormula === 'string' && maybeFormula.trim().length > 0) {
-                return { formula: maybeFormula.trim() };
+                const cleanedFormula = maybeFormula.trim().replace(/^=/, '');
+                return { formula: cleanedFormula };
             }
 
             try {
@@ -167,7 +172,49 @@ export class SpreadsheetService {
     }
 
     async exportToBuffer(workbook: ExcelJS.Workbook, format: 'xlsx' | 'csv'): Promise<Buffer> {
-        const buffer = format === 'csv' ? await workbook.csv.writeBuffer() : await workbook.xlsx.writeBuffer();
-        return Buffer.from(buffer);
+        if (format === 'csv') {
+            if (workbook.worksheets.length !== 1) {
+                throw new Error('SCHEMA_INVALID: O formato CSV suporta apenas uma aba. Use XLSX para múltiplas abas.');
+            }
+
+            this.prepareWorksheetForCsv(workbook.worksheets[0]);
+            const csvBuffer = await workbook.csv.writeBuffer();
+            const csvBody = Buffer.from(csvBuffer);
+            return Buffer.concat([Buffer.from('\uFEFF', 'utf8'), csvBody]);
+        }
+
+        const xlsxBuffer = await workbook.xlsx.writeBuffer();
+        return Buffer.from(xlsxBuffer);
+    }
+
+    private prepareWorksheetForCsv(worksheet: ExcelJS.Worksheet): void {
+        worksheet.eachRow((row) => {
+            row.eachCell((cell) => {
+                const value = cell.value;
+
+                if (typeof value === 'string') {
+                    cell.value = this.escapeCsvFormula(value);
+                    return;
+                }
+
+                if (this.isFormulaCellValue(value)) {
+                    const normalizedFormula = value.formula.trim().replace(/^=/, '');
+                    cell.value = this.escapeCsvFormula(`=${normalizedFormula}`);
+                }
+            });
+        });
+    }
+
+    private isFormulaCellValue(value: ExcelJS.CellValue): value is ExcelJS.CellFormulaValue {
+        return Boolean(value && typeof value === 'object' && 'formula' in value && typeof (value as { formula?: unknown }).formula === 'string');
+    }
+
+    private escapeCsvFormula(value: string): string {
+        const trimmed = value.trimStart();
+        if (/^[=+\-@]/.test(trimmed)) {
+            return `'${value}`;
+        }
+
+        return value;
     }
 }

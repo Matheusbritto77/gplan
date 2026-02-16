@@ -138,6 +138,25 @@ function toAsciiFilenameFallback(filename: string): string {
     return fallback.slice(0, 120);
 }
 
+function resolveHttpErrorStatus(message: string, fallback = 500): number {
+    if (message.includes("créditos")) {
+        return 402;
+    }
+
+    if (message.startsWith("SCHEMA_INVALID:") || message.startsWith("AI_VALIDATION_ERROR:")) {
+        return 400;
+    }
+
+    return fallback;
+}
+
+function toClientSafeErrorMessage(message: string): string {
+    return message
+        .replace(/^SCHEMA_INVALID:\s*/i, "")
+        .replace(/^AI_VALIDATION_ERROR:\s*/i, "")
+        .trim();
+}
+
 app.post(
     "/api/auth/register",
     authLimiter as any,
@@ -219,15 +238,17 @@ app.post("/api/process", authMiddleware as any, processLimiter as any, async (re
             return res.status(400).json({ error: "Prompt inválido" });
         }
 
-        const { prompt } = parsed.data;
+        const { prompt, generationMode } = parsed.data;
         await creditService.consumeCredits(authReq.user.sub, CREDITS_PER_GENERATION);
 
-        const result = await controller.processRequest(prompt);
+        const result = await controller.processRequest(prompt, generationMode);
         res.json(result);
     } catch (error: unknown) {
         console.error("Error processing request:", error);
         const message = error instanceof Error ? error.message : "Erro interno";
-        res.status(message.includes("créditos") ? 402 : 500).json({ error: message });
+        const status = resolveHttpErrorStatus(message, 500);
+        const errorMessage = status === 500 ? "Erro interno" : toClientSafeErrorMessage(message);
+        res.status(status).json({ error: errorMessage || "Erro ao processar solicitação" });
     }
 });
 
@@ -255,7 +276,9 @@ app.post("/api/download", authMiddleware as any, downloadLimiter as any, async (
     } catch (error: unknown) {
         console.error("Error generating file:", error);
         const message = error instanceof Error ? error.message : "Erro interno";
-        res.status(500).json({ error: message });
+        const status = resolveHttpErrorStatus(message, 500);
+        const errorMessage = status === 500 ? "Erro interno" : toClientSafeErrorMessage(message);
+        res.status(status).json({ error: errorMessage || "Erro ao gerar arquivo" });
     }
 });
 

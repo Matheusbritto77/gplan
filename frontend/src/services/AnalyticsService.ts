@@ -6,11 +6,13 @@ interface MetaEventParams {
     userData?: {
         email?: string;
         phone?: string;
+        externalId?: string;
     };
 }
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || '/api'
+    baseURL: import.meta.env.VITE_API_URL || '/api',
+    timeout: 6000
 });
 
 const getCookie = (name: string) => {
@@ -21,9 +23,27 @@ const getCookie = (name: string) => {
 };
 
 export const AnalyticsService = {
+    getStoredUser() {
+        try {
+            const raw = localStorage.getItem('user');
+            if (!raw) return null;
+            return JSON.parse(raw) as { id?: string; email?: string | null };
+        } catch (_err) {
+            return null;
+        }
+    },
+
+    buildEventId() {
+        const canUseCrypto = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function';
+        return canUseCrypto
+            ? `evt_${crypto.randomUUID()}`
+            : `evt_${Math.random().toString(36).slice(2)}${Date.now()}`;
+    },
+
     sendEvent({ eventName, customData, userData }: MetaEventParams) {
-        const eventID = 'evt_' + Math.random().toString(36).substring(2, 15) + Date.now();
+        const eventID = this.buildEventId();
         const eventSourceUrl = window.location.href;
+        const userFromStorage = this.getStoredUser();
 
         // Captura cookes da Meta para aumentar a qualidade do Match (Dataset Quality)
         const fbc = getCookie('_fbc');
@@ -43,6 +63,8 @@ export const AnalyticsService = {
             customData,
             userData: {
                 ...userData,
+                email: userData?.email || userFromStorage?.email || undefined,
+                externalId: userData?.externalId || userFromStorage?.id || undefined,
                 fbc,
                 fbp
             }
